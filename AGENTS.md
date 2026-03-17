@@ -111,7 +111,7 @@ def my_command(option):
 Adding a new AI tool integration:
 
 1. Create `aibgm/commands/integrations/<toolname>.py`
-2. Implement `AIToolIntegration` abstract class
+2. Implement `AIToolIntegration` abstract class (including `cleanup_hooks`)
 3. Register in `aibgm/commands/integrations/registry.py`
 
 Example:
@@ -127,6 +127,10 @@ class NewToolIntegration(AIToolIntegration):
     
     def setup_hooks(self, settings: dict) -> dict:
         # Configure hooks
+        return settings
+
+    def cleanup_hooks(self, settings: dict) -> dict:
+        # Remove hooks
         return settings
 ```
 
@@ -166,6 +170,10 @@ mypy aibgm/
 bgm play work 0
 bgm stop
 bgm select
+
+# Test setup / cleanup cycle
+bgm setup
+bgm cleanup
 ```
 
 ### When Adding New Features

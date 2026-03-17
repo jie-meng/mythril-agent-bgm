@@ -91,6 +91,10 @@ class OpenCodeIntegration(AIToolIntegration):
         """Not used for OpenCode (plugin-based setup). Returns settings unchanged."""
         return settings
 
+    def cleanup_hooks(self, settings: dict) -> dict:
+        """Not used for OpenCode (plugin-based cleanup). Returns settings unchanged."""
+        return settings
+
     def perform_setup(self) -> Tuple[bool, str]:
         """Write the BGM plugin JS file into OpenCode's plugin directory."""
         config_dir = self.get_config_dir()
@@ -102,3 +106,12 @@ class OpenCodeIntegration(AIToolIntegration):
 
         self.get_settings_path().write_text(_PLUGIN_TEMPLATE, encoding="utf-8")
         return (True, "OpenCode: Plugin installed successfully [OK]")
+
+    def perform_cleanup(self) -> Tuple[bool, str]:
+        """Remove the BGM plugin JS file from OpenCode's plugin directory."""
+        plugin_path = self.get_settings_path()
+        if not plugin_path.exists():
+            return (True, "OpenCode: No plugin file found, nothing to clean up")
+
+        plugin_path.unlink()
+        return (True, "OpenCode: Plugin removed successfully [OK]")

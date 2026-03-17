@@ -56,3 +56,12 @@ class ClaudeIntegration(AIToolIntegration):
         settings["hooks"]["Notification"] = hooks_config["Notification"]
 
         return settings
+
+    def cleanup_hooks(self, settings: dict) -> dict:
+        """Remove BGM hooks from Claude Code settings."""
+        hooks = settings.get("hooks", {})
+        for key in ("UserPromptSubmit", "Stop", "SessionEnd", "Notification"):
+            hooks.pop(key, None)
+        if not hooks:
+            settings.pop("hooks", None)
+        return settings

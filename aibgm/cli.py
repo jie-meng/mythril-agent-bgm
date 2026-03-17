@@ -6,6 +6,7 @@ A unified CLI tool for playing background music during AI-assisted work sessions
 
 import click
 
+from aibgm.commands.cleanup import cleanup
 from aibgm.commands.play import play
 from aibgm.commands.stop import stop
 from aibgm.commands.select import select
@@ -26,6 +27,7 @@ cli.add_command(play)
 cli.add_command(stop)
 cli.add_command(select)
 cli.add_command(setup)
+cli.add_command(cleanup)
 cli.add_command(toggle)
 cli.add_command(enable)
 cli.add_command(disable)

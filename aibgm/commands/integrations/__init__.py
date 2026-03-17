@@ -17,10 +17,12 @@ class AIToolIntegration(ABC):
     - get_tool_info(): Return (tool_id, tool_name)
     - get_settings_path(): Return path to settings file
     - setup_hooks(settings): Configure hooks in settings
+    - cleanup_hooks(settings): Remove hooks from settings
 
     Subclasses may override:
     - get_config_dir(): Return the tool's config root directory for install detection
     - perform_setup(): Customize the full setup flow (default: JSON read/write)
+    - perform_cleanup(): Customize the full cleanup flow (default: JSON read/write)
     """
 
     @abstractmethod
@@ -53,6 +55,19 @@ class AIToolIntegration(ABC):
 
         Returns:
             Updated settings dictionary
+        """
+        pass
+
+    @abstractmethod
+    def cleanup_hooks(self, settings: dict) -> dict:
+        """
+        Remove BGM hooks from the settings dictionary.
+
+        Args:
+            settings: Existing settings dictionary
+
+        Returns:
+            Updated settings dictionary with BGM hooks removed
         """
         pass
 
@@ -91,6 +106,29 @@ class AIToolIntegration(ABC):
             json.dump(settings, f, indent=2, ensure_ascii=False)
 
         return (True, f"{tool_name}: Configured successfully [OK]")
+
+    def perform_cleanup(self) -> Tuple[bool, str]:
+        """
+        Execute the full cleanup flow.
+
+        Default implementation: load JSON settings, remove hooks, save.
+        Subclasses can override for non-JSON cleanup (e.g. deleting a plugin file).
+        """
+        settings_path = self.get_settings_path()
+        tool_id, tool_name = self.get_tool_info()
+
+        if not settings_path.exists():
+            return (True, f"{tool_name}: No settings file found, nothing to clean up")
+
+        with open(settings_path, "r", encoding="utf-8") as f:
+            settings = json.load(f)
+
+        settings = self.cleanup_hooks(settings)
+
+        with open(settings_path, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+
+        return (True, f"{tool_name}: Cleaned up successfully [OK]")
 
     def validate_settings_path(self) -> bool:
         """

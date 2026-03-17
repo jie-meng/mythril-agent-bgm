@@ -105,3 +105,23 @@ class GeminiIntegration(AIToolIntegration):
         ]
 
         return settings
+
+    def cleanup_hooks(self, settings: dict) -> dict:
+        """Remove BGM hooks and related config from Gemini CLI settings."""
+        hooks = settings.get("hooks", {})
+        for key in ("BeforeAgent", "AfterAgent", "SessionEnd", "Notification"):
+            hooks.pop(key, None)
+        if not hooks:
+            settings.pop("hooks", None)
+
+        tools = settings.get("tools", {})
+        tools.pop("enableHooks", None)
+        if not tools:
+            settings.pop("tools", None)
+
+        hooks_config = settings.get("hooksConfig", {})
+        hooks_config.pop("enabled", None)
+        if not hooks_config:
+            settings.pop("hooksConfig", None)
+
+        return settings

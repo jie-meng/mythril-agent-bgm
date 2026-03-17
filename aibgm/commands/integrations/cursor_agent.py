@@ -48,3 +48,12 @@ class CursorAgentIntegration(AIToolIntegration):
         settings["hooks"]["stop"] = [{"command": "bgm play done"}]
 
         return settings
+
+    def cleanup_hooks(self, settings: dict) -> dict:
+        """Remove BGM hooks from Cursor Agent settings."""
+        hooks = settings.get("hooks", {})
+        for key in ("beforeSubmitPrompt", "stop"):
+            hooks.pop(key, None)
+        if not hooks:
+            settings.pop("hooks", None)
+        return settings

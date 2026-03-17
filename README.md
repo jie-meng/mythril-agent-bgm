@@ -37,7 +37,7 @@ pip install . --break-system-packages
 ```
 
 This installs CLI command:
-- `bgm` - Unified CLI with subcommands: play, stop, select, setup
+- `bgm` - Unified CLI with subcommands: play, stop, select, setup, cleanup
 
 ### System Dependencies
 
@@ -80,6 +80,15 @@ Currently supports:
 - **Cursor** (Cursor Hooks Notification not yet supported)
 - **Gemini CLI**
 - **iFlow CLI**
+- **OpenCode**
+
+#### 3. Cleanup AI Tool Integration (reverse of setup)
+
+```bash
+bgm cleanup
+```
+
+Removes BGM hooks/plugins from AI tools. Interactively select which tools to clean up.
 
 ### Manual Commands
 
