@@ -4,17 +4,43 @@ mythril-agent-bgm - A cross-platform tool that plays work music during work sess
 
 ## Quick Start
 
+Choose the path that fits your needs:
+
+### Option A: Use built-in BGM (install from PyPI)
+
+Use the package as-is with the built-in `default` music set.
+
 ```bash
-# 1. Install
-pip install .
+# 1. Install from PyPI (new install)
+pip install mythril-agent-bgm
 
-# 2. Setup AI tool integration (e.g., Claude Code)
-bgm setup
+# Upgrade an existing PyPI installation
+pip install -U mythril-agent-bgm
 
-# 3. Select your BGM configuration
+# 2. Select configuration (default is built in)
 bgm select
 
-# 4. Done! Music will auto-play when AI is working
+# 3. Setup AI tool integration (e.g., Claude Code)
+bgm setup
+```
+
+### Option B: Customize your own BGM (clone + local install)
+
+If you want to add your own audio and configs, clone this repository and install locally.
+
+```bash
+# 1. Clone
+git clone https://github.com/jie-meng/mythril-agent-bgm.git
+cd mythril-agent-bgm
+
+# 2. Add custom audio/config (see "Customize Your Own BGM")
+
+# 3. Install from local source
+pip install .
+
+# 4. Select your config and setup integration
+bgm select
+bgm setup
 ```
 
 ## Installation
@@ -26,15 +52,42 @@ bgm select
 
 ### Install
 
+#### Mode A: Install from PyPI (built-in BGM)
+
 ```bash
+# New install
+pip install mythril-agent-bgm
+
+# Upgrade existing install
+pip install -U mythril-agent-bgm
+```
+
+If you only want to upgrade from PyPI:
+
+```bash
+pip install -U mythril-agent-bgm
+```
+
+#### Mode B: Install from local clone (for custom BGM)
+
+```bash
+git clone https://github.com/jie-meng/mythril-agent-bgm.git
+cd mythril-agent-bgm
 pip install .
 ```
 
-If you encounter externally-managed-environment error, then you can install by
+If you encounter an `externally-managed-environment` error, install with:
 
 ```bash
+# PyPI mode
+pip install mythril-agent-bgm --break-system-packages
+pip install -U mythril-agent-bgm --break-system-packages
+
+# Local clone mode
 pip install . --break-system-packages
 ```
+
+Use **Mode B** when you need to add your own audio files or edit BGM configs.
 
 This installs CLI command:
 - `bgm` - Unified CLI with subcommands: play, stop, select, setup, cleanup
@@ -145,7 +198,16 @@ nnoremap <F10> :call system('bgm toggle')<CR>
 
 Press `F10` to toggle BGM playback/pause.
 
-## Custom Configuration
+## Customize Your Own BGM (Clone Mode)
+
+This section is for **Option B (clone + local install)**.
+
+Workflow:
+
+1. Add audio files under `aibgm/assets/sounds/<your-config>/`
+2. Update config (`aibgm/config_ext.json` or `aibgm/config.json`)
+3. Reinstall from your clone: `pip install .`
+4. Run `bgm select` and choose your config
 
 ### Add Custom Music
 
@@ -174,7 +236,7 @@ cp /path/to/your/song.mp3 aibgm/assets/sounds/my_collection/
 3. **Select your config**:
 
 ```bash
-bgm-select
+bgm select
 ```
 
 **How it works**:
@@ -234,12 +296,6 @@ bgm select
   - Example: Create `assets/sounds/my_collection/` and configure it in `config_ext.json`
 - **For royalty-free music**: Add to `config.json` and appropriate directories
 - The `.gitignore` file is configured to ignore all directories except `default`
-
-3. **Select your config**:
-
-```bash
-bgm select
-```
 
 ### Config Structure
 
