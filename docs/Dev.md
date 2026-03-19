@@ -303,6 +303,22 @@ Update `version` in `pyproject.toml`:
 version = "0.2.0"
 ```
 
+### Publish to PyPI
+
+```bash
+# Set environment variables first
+export PYPI_API_TOKEN="pypi-..."
+export TEST_PYPI_API_TOKEN="test-pypi-..."
+
+# Publish to PyPI
+python3 scripts/publish.py
+
+# Or test on TestPyPI first
+python3 scripts/publish.py --test
+```
+
+The script performs version consistency check between `__init__.py` and `pyproject.toml`, builds sdist + wheel, and uploads via twine.
+
 ## Code Style
 
 - **Black** line length: 100
