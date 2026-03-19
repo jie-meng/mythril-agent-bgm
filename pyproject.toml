@@ -16,13 +16,20 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Operating System :: OS Independent",
 ]
+
+keywords = ["ai", "background-music", "bgm", "productivity", "cli"]
+
+[project.urls]
+Homepage = "https://github.com/jie-meng/mythril-agent-bgm"
+Repository = "https://github.com/jie-meng/mythril-agent-bgm"
+Issues = "https://github.com/jie-meng/mythril-agent-bgm/issues"
 
 dependencies = [
     "pygame>=2.6.1",
