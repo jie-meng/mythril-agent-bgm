@@ -9,7 +9,6 @@ from mythril_agent_bgm.commands.integrations import AIToolIntegration
 from mythril_agent_bgm.commands.integrations.claude import ClaudeIntegration
 from mythril_agent_bgm.commands.integrations.cursor_agent import CursorAgentIntegration
 from mythril_agent_bgm.commands.integrations.gemini import GeminiIntegration
-from mythril_agent_bgm.commands.integrations.iflow import IFlowIntegration
 from mythril_agent_bgm.commands.integrations.opencode import OpenCodeIntegration
 
 
@@ -28,7 +27,6 @@ class IntegrationRegistry:
         ClaudeIntegration,
         CursorAgentIntegration,
         GeminiIntegration,
-        IFlowIntegration,
         OpenCodeIntegration,
     ]
 
@@ -48,7 +46,7 @@ class IntegrationRegistry:
         Get integration instance by tool ID.
 
         Args:
-            tool_id: Tool identifier (e.g., 'claude', 'iflow')
+            tool_id: Tool identifier (e.g., 'claude')
 
         Returns:
             Integration instance

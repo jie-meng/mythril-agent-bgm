@@ -146,7 +146,6 @@ Then register:
 # In registry.py
 _integrations = [
     ClaudeIntegration,
-    IFlowIntegration,
     NewToolIntegration,  # Add here
 ]
 ```

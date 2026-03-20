@@ -191,7 +191,6 @@ from mythril_agent_bgm.commands.integrations.newtool import NewToolIntegration
 class IntegrationRegistry:
     _integrations: List[Type[AIToolIntegration]] = [
         ClaudeIntegration,
-        IFlowIntegration,
         NewToolIntegration,  # Add here
     ]
 ```
@@ -214,7 +213,6 @@ mythril_agent_bgm/commands/integrations/
 ├── claude.py             # Claude Code integration
 ├── cursor_agent.py       # Cursor Agent integration
 ├── gemini.py             # Gemini CLI integration
-├── iflow.py              # iFlow CLI integration
 └── <newtool>.py          # Your new integration
 ```
 
@@ -231,7 +229,7 @@ AI BGM supports the following AI CLI tools with hooks:
 - **Claude Code**: [Hooks Documentation](https://code.claude.com/docs/en/hooks)
 - **Cursor Agent**: [Hooks Documentation](https://cursor.com/cn/docs/agent/hooks)
 - **Gemini CLI**: [Hooks Documentation](https://geminicli.com/docs/hooks/)
-- **iFlow CLI**: [Hooks Documentation](https://platform.iflow.cn/en/cli/examples/hooks#8-userpromptsubmit-hook)
+
 
 ### Add New Music Configuration
 

@@ -57,11 +57,11 @@ mythril_agent_bgm/assets/sounds/*
 # AI tools config
 CLAUDE.md
 GEMINI.md
-IFLOW.md
+
 QWEN.md
 .claude/
 .cursor/
 .gemini/
-.iflow/
+
 .qwen/
 .specify/
