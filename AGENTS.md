@@ -72,6 +72,22 @@ Code should be open for extension, closed for modification. Add new platform sup
 
 ## Common Tasks
 
+### Bump Version
+
+Use the version bump script to keep version fields in sync:
+
+```bash
+# Show current versions
+python3 scripts/bump-version.py
+
+# Bump version in all tracked files
+python3 scripts/bump-version.py 0.2.0
+```
+
+This updates:
+- `pyproject.toml` (`[project].version`)
+- `mythril_agent_bgm/__init__.py` (`__version__`)
+
 ### Platform-Specific Code
 
 Use utilities from `mythril_agent_bgm.utils.platform_utils` and `mythril_agent_bgm.utils.process`:

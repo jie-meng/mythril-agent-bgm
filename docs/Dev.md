@@ -312,12 +312,20 @@ python -m build
 
 ### Version Bump
 
-Update `version` in `pyproject.toml`:
+Use the bump script to keep versions in sync:
 
-```toml
-[project]
-version = "0.2.0"
+```bash
+# Show current versions
+python3 scripts/bump-version.py
+
+# Bump to a new version
+python3 scripts/bump-version.py 0.2.0
 ```
+
+This updates both:
+
+- `pyproject.toml`
+- `mythril_agent_bgm/__init__.py`
 
 ### Publish to PyPI
 
