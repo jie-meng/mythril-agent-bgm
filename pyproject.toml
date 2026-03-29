@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mythril-agent-bgm"
-version = "0.1.3"
+version = "0.1.4"
 description = "AI CLI Background Music Player - Plays work music in loop and done music when finished"
 readme = "README.md"
 requires-python = ">=3.9"
