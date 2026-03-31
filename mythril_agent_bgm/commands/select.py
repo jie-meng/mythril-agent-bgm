@@ -4,13 +4,38 @@ Select configuration command for AI BGM.
 """
 
 import json
+import subprocess
 import sys
-from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import click
 
 from mythril_agent_bgm.utils.common import get_selection_file, load_builtin_config
+from mythril_agent_bgm.utils.platform_utils import is_windows
+
+
+def _ensure_curses() -> None:
+    """Import curses, auto-installing windows-curses on Windows if needed."""
+    try:
+        import curses as _  # noqa: F401
+    except ImportError:
+        if is_windows():
+            click.echo("Installing windows-curses ...")
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "windows-curses"],
+                stdout=subprocess.DEVNULL,
+            )
+        else:
+            click.echo(
+                "Error: curses module not available. Please install Python with curses support.",
+                err=True,
+            )
+            sys.exit(1)
+
+
+_ensure_curses()
+
+import curses  # noqa: E402
 
 
 def load_current_selection() -> Optional[str]:
@@ -28,7 +53,6 @@ def save_selection(selection: str) -> None:
     """Save the selected BGM configuration to user config directory."""
     config_path = get_selection_file()
 
-    # Load existing config to preserve other settings (like 'enable')
     data = {}
     if config_path.exists():
         try:
@@ -42,8 +66,64 @@ def save_selection(selection: str) -> None:
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
-    click.echo(f"Selected: {selection}")
-    click.echo(f"Config saved to: {config_path}")
+
+def curses_single_select(
+    stdscr: curses.window,
+    title: str,
+    items: List[str],
+    current_index: int = 0,
+) -> Optional[int]:
+    """Interactive single-select with arrow keys and enter/space.
+
+    Returns the selected index, or None if the user cancelled (q/Esc).
+    The cursor starts at current_index (the already-saved selection).
+    """
+    curses.curs_set(0)
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_CYAN, -1)
+    curses.init_pair(2, curses.COLOR_GREEN, -1)
+    curses.init_pair(3, curses.COLOR_YELLOW, -1)
+
+    cursor = current_index
+
+    def draw() -> None:
+        stdscr.clear()
+        stdscr.addstr(0, 0, title, curses.A_BOLD)
+        hint = "↑/↓ or j/k move | Enter/Space confirm | q quit"
+        stdscr.addstr(1, 0, hint, curses.color_pair(3))
+
+        row = 3
+        for i, item in enumerate(items):
+            is_current = i == current_index
+            is_cursor = i == cursor
+
+            if is_current:
+                marker = "●"
+                base_color = curses.color_pair(2)
+            else:
+                marker = " "
+                base_color = 0
+
+            attr = curses.A_REVERSE if is_cursor else base_color
+            try:
+                stdscr.addstr(row + i, 0, f"  {marker}  {item}", attr)
+            except curses.error:
+                pass
+
+        stdscr.refresh()
+
+    while True:
+        draw()
+        key = stdscr.getch()
+
+        if key in (curses.KEY_UP, ord("k")):
+            cursor = (cursor - 1) % len(items)
+        elif key in (curses.KEY_DOWN, ord("j")):
+            cursor = (cursor + 1) % len(items)
+        elif key in (curses.KEY_ENTER, 10, 13, ord(" ")):
+            return cursor
+        elif key in (ord("q"), 27):
+            return None
 
 
 @click.command()
@@ -56,41 +136,21 @@ def select():
         click.echo("Error: No available BGM configuration", err=True)
         sys.exit(1)
 
-    # Load current selection
     current_selection = load_current_selection()
+    current_index = options.index(current_selection) if current_selection in options else 0
 
-    click.echo("Please select BGM configuration:")
-    for i, option in enumerate(options, 1):
-        current_marker = " (current)" if option == current_selection else ""
-        click.echo(f"{i}. {option}{current_marker}")
+    chosen_index = curses.wrapper(
+        curses_single_select,
+        "Select BGM configuration:",
+        options,
+        current_index=current_index,
+    )
 
-    try:
-        default_index = options.index(current_selection) + 1 if current_selection in options else 1
-        user_input = click.prompt(
-            f"Enter option (1-{len(options)}, current {default_index})",
-            default=str(default_index),
-            show_default=False,
-        ).strip()
-        if not user_input:
-            if current_selection and current_selection in options:
-                selection = current_selection
-            else:
-                selection = options[0]
-        else:
-            index = int(user_input) - 1
-            if 0 <= index < len(options):
-                selection = options[index]
-            else:
-                click.echo(
-                    f"Error: Invalid option, please enter 1-{len(options)}",
-                    err=True,
-                )
-                sys.exit(1)
-    except ValueError:
-        click.echo("Error: Please enter a valid number", err=True)
-        sys.exit(1)
-    except KeyboardInterrupt:
-        click.echo("\nCancelled")
+    if chosen_index is None:
+        click.echo("Cancelled.")
         sys.exit(0)
 
+    selection = options[chosen_index]
     save_selection(selection)
+    click.echo(f"Selected: {selection}")
+    click.echo(f"Config saved to: {get_selection_file()}")
