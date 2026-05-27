@@ -6,7 +6,6 @@ A unified CLI tool for playing background music during AI-assisted work sessions
 
 import click
 
-from mythril_agent_bgm.commands.cleanup import cleanup
 from mythril_agent_bgm.commands.play import play
 from mythril_agent_bgm.commands.stop import stop
 from mythril_agent_bgm.commands.select import select
@@ -34,7 +33,6 @@ cli.add_command(play)
 cli.add_command(stop)
 cli.add_command(select)
 cli.add_command(setup)
-cli.add_command(cleanup)
 cli.add_command(toggle)
 cli.add_command(enable)
 cli.add_command(disable)

@@ -193,9 +193,8 @@ bgm play work 0
 bgm stop
 bgm select
 
-# Test setup / cleanup cycle
+# Test integration management (hook + unhook in one screen)
 bgm setup
-bgm cleanup
 ```
 
 ### When Adding New Features

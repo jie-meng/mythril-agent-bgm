@@ -104,10 +104,9 @@ bgm play notification    # 播放 notification
 bgm stop                 # 停止后台播放
 bgm toggle               # 播放/停止切换
 bgm select               # 选择配置
-bgm setup                # 配置集成
-bgm cleanup              # 清理集成变更
-bgm enable               # 开启自动 BGM
-bgm disable              # 关闭自动 BGM
+bgm setup                # 管理 AI 工具集成（勾选 hook / 取消勾选 unhook）
+bgm enable               # 开启自动 BGM（全局开关打开）
+bgm disable              # 关闭自动 BGM（全局开关关闭）
 ```
 
 ## 故障排查

@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 """
-Setup AI tool integration command for AI BGM.
+Manage AI tool integrations for AI BGM.
+
+``bgm setup`` is the single interactive screen for hooking BGM into AI
+tools and un-hooking it. Confirming the screen applies the **diff**
+between the current state and the user's selection:
+
+- previously unhooked + now selected   → ``integration.perform_setup()``
+- previously hooked   + now unselected → ``integration.perform_cleanup()``
+- unchanged rows                       → skipped
+
+This is unrelated to the global ``bgm enable / bgm disable`` toggle,
+which controls whether ``bgm play`` does anything at runtime.
 """
 
 import subprocess
@@ -12,6 +23,7 @@ import click
 from mythril_agent_bgm.commands.integrations import AIToolIntegration
 from mythril_agent_bgm.commands.integrations.registry import IntegrationRegistry
 from mythril_agent_bgm.utils.colors import BOLD, GREEN, RED, YELLOW, color_text
+from mythril_agent_bgm.utils.common import is_bgm_enabled
 from mythril_agent_bgm.utils.platform_utils import is_windows
 
 
@@ -29,7 +41,8 @@ def _ensure_curses() -> None:
         else:
             click.echo(
                 color_text(
-                    "Error: curses module not available. Please install Python with curses support.",
+                    "Error: curses module not available. "
+                    "Please install Python with curses support.",
                     RED,
                 )
             )
@@ -47,61 +60,57 @@ def check_tool_installed(integration: AIToolIntegration) -> bool:
 
 
 def setup_integration(integration: AIToolIntegration) -> Tuple[bool, str]:
-    """
-    Setup a single integration.
-
-    Delegates to integration.perform_setup(), which handles
-    JSON-based and non-JSON (e.g. plugin file) integrations uniformly.
-
-    Returns:
-        Tuple of (success: bool, message: str)
-    """
+    """Run setup for a single integration. See :class:`AIToolIntegration`."""
     return integration.perform_setup()
 
 
-def curses_multi_select(
-    stdscr: curses.window,
+def curses_manage_integrations(
+    stdscr: "curses.window",
     title: str,
     items: List[str],
-    preselected: List[bool] | None = None,
+    initial_state: List[bool],
+    status_labels: List[str],
     disabled: set[int] | None = None,
-    status_labels: List[str] | None = None,
-    status_is_configured: set[int] | None = None,
-) -> List[int] | None:
-    """Interactive multi-select with arrow keys, space, and enter.
+    status_is_hooked: set[int] | None = None,
+) -> List[bool] | None:
+    """Interactive screen for managing per-tool BGM hook state.
 
-    Returns list of selected indices, or None if user cancelled (q/Esc).
-    Disabled indices are shown dimmed and cannot be selected or toggled.
+    The selected checkboxes represent the **target** state. Use the returned
+    list (paired with ``initial_state``) to compute which tools to hook
+    (``False → True``) and which to unhook (``True → False``).
 
     Args:
-        status_labels: Optional per-item status text appended after the name
-            (e.g. ``"enabled"``, ``"not enabled"``, ``"not installed"``).
-        status_is_configured: Indices whose status label should be rendered
-            in green (already-configured visual cue).
+        title: Screen title.
+        items: Tool display names.
+        initial_state: Current hook state per row (also the initial selection).
+        status_labels: Right-side label per row (e.g. "hooked", "not hooked",
+            "not installed").
+        disabled: Row indices that cannot be toggled (e.g. uninstalled tools).
+        status_is_hooked: Row indices currently hooked — used only for the
+            green label color.
+
+    Returns:
+        Final per-row selection on Enter, or ``None`` on q/Esc.
     """
     curses.curs_set(0)
     curses.use_default_colors()
     curses.init_pair(1, curses.COLOR_CYAN, -1)
     curses.init_pair(2, curses.COLOR_GREEN, -1)
     curses.init_pair(3, curses.COLOR_YELLOW, -1)
-    curses.init_pair(4, curses.COLOR_WHITE, -1)
+    curses.init_pair(4, curses.COLOR_RED, -1)
+    curses.init_pair(5, curses.COLOR_WHITE, -1)
 
     disabled = disabled or set()
-    status_is_configured = status_is_configured or set()
-    if preselected:
-        selected = list(preselected)
-    else:
-        selected = [i not in disabled for i in range(len(items))]
-    for i in disabled:
-        selected[i] = False
+    status_is_hooked = status_is_hooked or set()
+
+    selected = [s and (i not in disabled) for i, s in enumerate(initial_state)]
 
     cursor = 0
     all_item = "Select All / Deselect All"
     total_items = 1 + len(items)
-    enabled_count = len(items) - len(disabled)
+    toggleable_count = len(items) - len(disabled)
 
     def _next_enabled(pos: int, direction: int) -> int:
-        """Find next non-disabled position, wrapping around."""
         candidate = (pos + direction) % total_items
         attempts = 0
         while attempts < total_items:
@@ -111,15 +120,29 @@ def curses_multi_select(
             attempts += 1
         return 0
 
+    def _diff_counts() -> Tuple[int, int]:
+        """Return (to_hook, to_unhook) — diff between selected and initial_state."""
+        to_hook = sum(
+            1
+            for i in range(len(items))
+            if i not in disabled and selected[i] and not initial_state[i]
+        )
+        to_unhook = sum(
+            1
+            for i in range(len(items))
+            if i not in disabled and not selected[i] and initial_state[i]
+        )
+        return to_hook, to_unhook
+
     def draw() -> None:
         stdscr.clear()
         stdscr.addstr(0, 0, title, curses.A_BOLD)
-        hint = "Up/Down move | Space toggle | a all/none | Enter confirm | q quit"
+        hint = "Up/Down move | Space toggle | a all/none | Enter apply | q cancel"
         stdscr.addstr(1, 0, hint, curses.color_pair(3))
 
         row = 3
-        enabled_sel = [s for i, s in enumerate(selected) if i not in disabled]
-        all_selected = bool(enabled_sel) and all(enabled_sel)
+        toggleable = [s for i, s in enumerate(selected) if i not in disabled]
+        all_selected = bool(toggleable) and all(toggleable)
         marker = "[x]" if all_selected else "[ ]"
         attr = curses.A_REVERSE if cursor == 0 else 0
         try:
@@ -154,7 +177,7 @@ def curses_multi_select(
                 label = f"  ({status_labels[i]})"
                 if is_disabled:
                     label_color = curses.A_DIM
-                elif i in status_is_configured:
+                elif i in status_is_hooked:
                     label_color = curses.color_pair(2)
                 else:
                     label_color = curses.color_pair(3)
@@ -163,14 +186,21 @@ def curses_multi_select(
                 except curses.error:
                     pass
 
-        count = sum(1 for i, s in enumerate(selected) if s and i not in disabled)
+        hooked_now = sum(1 for s in selected if s)
+        to_hook, to_unhook = _diff_counts()
+        if to_hook == 0 and to_unhook == 0:
+            summary = f"  {hooked_now}/{toggleable_count} hooked  (no changes)"
+            summary_color = curses.color_pair(3)
+        else:
+            parts = []
+            if to_hook:
+                parts.append(f"+{to_hook} hook")
+            if to_unhook:
+                parts.append(f"-{to_unhook} unhook")
+            summary = f"  {hooked_now}/{toggleable_count} hooked  ({', '.join(parts)})"
+            summary_color = curses.color_pair(2)
         try:
-            stdscr.addstr(
-                row + len(items) + 1,
-                0,
-                f"  {count}/{enabled_count} selected",
-                curses.color_pair(3),
-            )
+            stdscr.addstr(row + len(items) + 1, 0, summary, summary_color)
         except curses.error:
             pass
 
@@ -186,36 +216,34 @@ def curses_multi_select(
             cursor = _next_enabled(cursor, 1)
         elif key == ord(" "):
             if cursor == 0:
-                enabled_sel = [s for i, s in enumerate(selected) if i not in disabled]
-                new_val = not (bool(enabled_sel) and all(enabled_sel))
+                toggleable = [s for i, s in enumerate(selected) if i not in disabled]
+                new_val = not (bool(toggleable) and all(toggleable))
                 selected = [new_val if i not in disabled else False for i in range(len(items))]
             elif cursor - 1 not in disabled:
                 selected[cursor - 1] = not selected[cursor - 1]
         elif key == ord("a"):
-            enabled_sel = [s for i, s in enumerate(selected) if i not in disabled]
-            new_val = not (bool(enabled_sel) and all(enabled_sel))
+            toggleable = [s for i, s in enumerate(selected) if i not in disabled]
+            new_val = not (bool(toggleable) and all(toggleable))
             selected = [new_val if i not in disabled else False for i in range(len(items))]
         elif key in (curses.KEY_ENTER, 10, 13):
-            return [i for i, s in enumerate(selected) if s and i not in disabled]
+            return list(selected)
         elif key in (ord("q"), 27):
             return None
 
 
-def select_tools_interactive(integrations: List[AIToolIntegration]) -> List[int] | None:
-    """Launch curses UI to select AI tools. Returns selected indices or None.
+def _build_screen_inputs(
+    integrations: List[AIToolIntegration],
+) -> Tuple[List[str], List[bool], List[str], set[int], set[int]]:
+    """Collect display data for :func:`curses_manage_integrations`.
 
-    Each tool is shown with one of three statuses:
-    - ``not installed``: tool's config dir is missing; row is disabled.
-    - ``enabled``:       BGM hooks/plugin are already installed; default unselected
-                         (re-running setup is idempotent if the user opts in).
-    - ``not enabled``:   tool is installed but BGM hooks are missing; default
-                         selected as the most common intent.
+    Returns:
+        ``(items, initial_state, status_labels, disabled, hooked_indices)``.
     """
     items: List[str] = []
+    initial_state: List[bool] = []
     status_labels: List[str] = []
     disabled: set[int] = set()
-    configured: set[int] = set()
-    preselected: List[bool] = []
+    hooked_indices: set[int] = set()
 
     for i, integration in enumerate(integrations):
         _, tool_name = integration.get_tool_info()
@@ -223,80 +251,117 @@ def select_tools_interactive(integrations: List[AIToolIntegration]) -> List[int]
 
         if not check_tool_installed(integration):
             disabled.add(i)
+            initial_state.append(False)
             status_labels.append("not installed")
-            preselected.append(False)
         elif integration.is_configured():
-            configured.add(i)
-            status_labels.append("enabled")
-            preselected.append(False)
+            hooked_indices.add(i)
+            initial_state.append(True)
+            status_labels.append("hooked")
         else:
-            status_labels.append("not enabled")
-            preselected.append(True)
+            initial_state.append(False)
+            status_labels.append("not hooked")
 
+    return items, initial_state, status_labels, disabled, hooked_indices
+
+
+def manage_integrations_interactive(
+    integrations: List[AIToolIntegration],
+) -> List[bool] | None:
+    """Launch curses UI. Returns target state per tool, or ``None`` if cancelled."""
+    items, initial_state, status_labels, disabled, hooked = _build_screen_inputs(integrations)
     return curses.wrapper(
-        curses_multi_select,
-        "Select AI tools to setup:",
+        curses_manage_integrations,
+        "Manage AI tool integrations:",
         items,
-        preselected=preselected,
-        disabled=disabled,
+        initial_state=initial_state,
         status_labels=status_labels,
-        status_is_configured=configured,
+        disabled=disabled,
+        status_is_hooked=hooked,
     )
 
 
 @click.command()
 def setup():
-    """Setup AI BGM integration with AI tools."""
-    # Get all available integrations
+    """Manage AI BGM integrations (hook / unhook AI tools).
+
+    Opens an interactive screen showing every supported AI tool's current
+    hook state. Toggle rows with Space, press Enter to apply: newly checked
+    rows are hooked, newly unchecked rows are unhooked.
+
+    This only manages **per-tool** hook installation. To toggle the global
+    BGM switch (so ``bgm play`` becomes a no-op), use ``bgm enable`` /
+    ``bgm disable`` instead.
+    """
     integrations = IntegrationRegistry.get_all_integrations()
 
-    # Check which tools are installed
-    installed_tools: List[AIToolIntegration] = []
-    not_installed_tools: List[Tuple[AIToolIntegration, str]] = []
-
-    for integration in integrations:
-        if check_tool_installed(integration):
-            installed_tools.append(integration)
-        else:
-            tool_id, tool_name = integration.get_tool_info()
-            not_installed_tools.append((integration, tool_name))
-
-    if not installed_tools:
+    if not any(check_tool_installed(i) for i in integrations):
         click.echo(color_text("\nNo installed AI tools detected", RED))
         click.echo("Please install and run one of the following tools first:")
-        for _, tool_name in not_installed_tools:
+        for integration in integrations:
+            _, tool_name = integration.get_tool_info()
             click.echo(f"  - {tool_name}")
         sys.exit(0)
 
-    tool_indices = select_tools_interactive(integrations)
-    if tool_indices is None or len(tool_indices) == 0:
-        click.echo("No tools selected. Aborted.")
+    if not is_bgm_enabled():
+        click.echo(
+            color_text(
+                "Note: AI BGM is globally disabled. Hooks will fire but produce no sound.\n"
+                "      Run 'bgm enable' to turn it back on.",
+                YELLOW,
+            )
+        )
+
+    final_state = manage_integrations_interactive(integrations)
+    if final_state is None:
+        click.echo("Cancelled. No changes applied.")
         sys.exit(0)
 
-    click.echo(color_text(f"\nSelected {len(tool_indices)} tool(s), starting setup...", YELLOW))
+    initial_state = [check_tool_installed(i) and i.is_configured() for i in integrations]
+
+    to_hook: List[int] = []
+    to_unhook: List[int] = []
+    for idx, (was, now) in enumerate(zip(initial_state, final_state)):
+        if not check_tool_installed(integrations[idx]):
+            continue
+        if not was and now:
+            to_hook.append(idx)
+        elif was and not now:
+            to_unhook.append(idx)
+
+    if not to_hook and not to_unhook:
+        click.echo("No changes to apply.")
+        sys.exit(0)
+
+    click.echo(
+        color_text(
+            f"\nApplying changes: +{len(to_hook)} hook, -{len(to_unhook)} unhook ...",
+            YELLOW,
+        )
+    )
     click.echo("-" * 50)
 
     success_count = 0
     fail_count = 0
 
-    for idx in tool_indices:
-        integration = integrations[idx]
-        success, message = setup_integration(integration)
+    for idx in to_hook:
+        success, message = integrations[idx].perform_setup()
         if success:
             success_count += 1
-            click.echo(color_text(message, GREEN))
+            click.echo(color_text(f"  hook   {message}", GREEN))
         else:
             fail_count += 1
-            click.echo(color_text(message, RED))
+            click.echo(color_text(f"  hook   {message}", RED))
+
+    for idx in to_unhook:
+        success, message = integrations[idx].perform_cleanup()
+        if success:
+            success_count += 1
+            click.echo(color_text(f"  unhook {message}", GREEN))
+        else:
+            fail_count += 1
+            click.echo(color_text(f"  unhook {message}", RED))
 
     click.echo("-" * 50)
     click.echo(color_text(f"Success: {success_count}, Failed: {fail_count}", BOLD))
-
-    if not_installed_tools:
-        click.echo()
-        click.echo(color_text("Tools not detected (not installed):", YELLOW))
-        for _, tool_name in not_installed_tools:
-            click.echo(f"  - {tool_name}")
-
     click.echo()
-    click.echo(color_text("[OK] AI BGM setup complete!", GREEN))
+    click.echo(color_text("[OK] AI BGM integrations updated.", GREEN))

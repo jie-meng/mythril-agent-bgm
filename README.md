@@ -105,10 +105,9 @@ bgm play notification    # Play notification sound
 bgm stop                 # Stop current playback daemon
 bgm toggle               # Toggle play/stop
 bgm select               # Choose profile
-bgm setup                # Configure integrations
-bgm cleanup              # Remove integration changes
-bgm enable               # Enable automatic BGM
-bgm disable              # Disable automatic BGM
+bgm setup                # Manage AI tool integrations (hook / unhook)
+bgm enable               # Enable automatic BGM (global switch on)
+bgm disable              # Disable automatic BGM (global switch off)
 ```
 
 ## Troubleshooting
