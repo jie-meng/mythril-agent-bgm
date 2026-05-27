@@ -7,6 +7,7 @@ This directory contains integration modules for various AI CLI tools.
 - `__init__.py` - Base `AIToolIntegration` abstract class
 - `registry.py` - Integration registry that manages all integrations
 - `claude.py` - Claude Code integration
+- `copilot.py` - GitHub Copilot CLI integration (dedicated hooks file)
 - `cursor_agent.py` - Cursor Agent integration
 - `gemini.py` - Gemini CLI integration
 - `opencode.py` - OpenCode integration (plugin-based)
@@ -91,6 +92,7 @@ bgm setup
 ## Available Integrations
 
 - **Claude Code**: [Hooks Documentation](https://code.claude.com/docs/en/hooks)
+- **GitHub Copilot CLI**: [Hooks Documentation](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks) — installs a dedicated `~/.copilot/hooks/mythril-agent-bgm.json` (respects `COPILOT_HOME`)
 - **Cursor Agent**: [Hooks Documentation](https://cursor.com/cn/docs/agent/hooks)
 - **Gemini CLI**: [Hooks Documentation](https://geminicli.com/docs/hooks/)
 - **OpenCode**: [Plugins Documentation](https://opencode.ai/docs/plugins/) — uses a JS plugin file instead of JSON hooks

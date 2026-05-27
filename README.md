@@ -52,6 +52,7 @@ bgm stop
 ## Supported Integrations
 
 - Claude Code
+- GitHub Copilot CLI
 - Cursor Agent
 - Gemini CLI
 - OpenCode (plugin-based)
