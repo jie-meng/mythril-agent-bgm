@@ -54,6 +54,10 @@ class CopilotIntegration(AIToolIntegration):
         """Not used (file-based cleanup). Returns settings unchanged."""
         return settings
 
+    def is_configured(self) -> bool:
+        """BGM is configured iff the managed hooks file exists."""
+        return self.get_settings_path().exists()
+
     def perform_setup(self) -> Tuple[bool, str]:
         """Write the BGM hooks JSON into Copilot's user-level hooks directory."""
         config_dir = self.get_config_dir()

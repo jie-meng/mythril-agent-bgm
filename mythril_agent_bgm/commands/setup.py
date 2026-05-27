@@ -65,11 +65,19 @@ def curses_multi_select(
     items: List[str],
     preselected: List[bool] | None = None,
     disabled: set[int] | None = None,
+    status_labels: List[str] | None = None,
+    status_is_configured: set[int] | None = None,
 ) -> List[int] | None:
     """Interactive multi-select with arrow keys, space, and enter.
 
     Returns list of selected indices, or None if user cancelled (q/Esc).
     Disabled indices are shown dimmed and cannot be selected or toggled.
+
+    Args:
+        status_labels: Optional per-item status text appended after the name
+            (e.g. ``"enabled"``, ``"not enabled"``, ``"not installed"``).
+        status_is_configured: Indices whose status label should be rendered
+            in green (already-configured visual cue).
     """
     curses.curs_set(0)
     curses.use_default_colors()
@@ -79,6 +87,7 @@ def curses_multi_select(
     curses.init_pair(4, curses.COLOR_WHITE, -1)
 
     disabled = disabled or set()
+    status_is_configured = status_is_configured or set()
     if preselected:
         selected = list(preselected)
     else:
@@ -129,16 +138,30 @@ def curses_multi_select(
             is_disabled = i in disabled
             if is_disabled:
                 marker = "[-]"
-                attr = curses.A_DIM
-                color = 0
+                row_attr = curses.A_DIM
+                name_color = 0
             else:
                 marker = "[x]" if selected[i] else "[ ]"
-                attr = curses.A_REVERSE if cursor == i + 1 else 0
-                color = curses.color_pair(2) if selected[i] else 0
+                row_attr = curses.A_REVERSE if cursor == i + 1 else 0
+                name_color = curses.color_pair(2) if selected[i] else 0
+
             try:
-                stdscr.addstr(row + i, 0, f"  {marker}  {item}", attr | color)
+                stdscr.addstr(row + i, 0, f"  {marker}  {item}", row_attr | name_color)
             except curses.error:
                 pass
+
+            if status_labels and i < len(status_labels) and status_labels[i]:
+                label = f"  ({status_labels[i]})"
+                if is_disabled:
+                    label_color = curses.A_DIM
+                elif i in status_is_configured:
+                    label_color = curses.color_pair(2)
+                else:
+                    label_color = curses.color_pair(3)
+                try:
+                    stdscr.addstr(row + i, 4 + len(marker) + len(item), label, label_color)
+                except curses.error:
+                    pass
 
         count = sum(1 for i, s in enumerate(selected) if s and i not in disabled)
         try:
@@ -179,25 +202,45 @@ def curses_multi_select(
 
 
 def select_tools_interactive(integrations: List[AIToolIntegration]) -> List[int] | None:
-    """Launch curses UI to select AI tools. Returns selected indices or None."""
-    uninstalled = {
-        i for i, integration in enumerate(integrations) if not check_tool_installed(integration)
-    }
-    items = [
-        (
-            f"{integration.get_tool_info()[1]}  (not installed)"
-            if i in uninstalled
-            else integration.get_tool_info()[1]
-        )
-        for i, integration in enumerate(integrations)
-    ]
-    preselected = [i not in uninstalled for i in range(len(items))]
+    """Launch curses UI to select AI tools. Returns selected indices or None.
+
+    Each tool is shown with one of three statuses:
+    - ``not installed``: tool's config dir is missing; row is disabled.
+    - ``enabled``:       BGM hooks/plugin are already installed; default unselected
+                         (re-running setup is idempotent if the user opts in).
+    - ``not enabled``:   tool is installed but BGM hooks are missing; default
+                         selected as the most common intent.
+    """
+    items: List[str] = []
+    status_labels: List[str] = []
+    disabled: set[int] = set()
+    configured: set[int] = set()
+    preselected: List[bool] = []
+
+    for i, integration in enumerate(integrations):
+        _, tool_name = integration.get_tool_info()
+        items.append(tool_name)
+
+        if not check_tool_installed(integration):
+            disabled.add(i)
+            status_labels.append("not installed")
+            preselected.append(False)
+        elif integration.is_configured():
+            configured.add(i)
+            status_labels.append("enabled")
+            preselected.append(False)
+        else:
+            status_labels.append("not enabled")
+            preselected.append(True)
+
     return curses.wrapper(
         curses_multi_select,
         "Select AI tools to setup:",
         items,
         preselected=preselected,
-        disabled=uninstalled,
+        disabled=disabled,
+        status_labels=status_labels,
+        status_is_configured=configured,
     )
 
 

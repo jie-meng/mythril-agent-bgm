@@ -23,6 +23,7 @@ class AIToolIntegration(ABC):
     - get_config_dir(): Return the tool's config root directory for install detection
     - perform_setup(): Customize the full setup flow (default: JSON read/write)
     - perform_cleanup(): Customize the full cleanup flow (default: JSON read/write)
+    - is_configured(): Customize how to detect existing BGM configuration
     """
 
     @abstractmethod
@@ -138,3 +139,33 @@ class AIToolIntegration(ABC):
             True if settings file exists, False otherwise
         """
         return self.get_settings_path().exists()
+
+    def is_configured(self) -> bool:
+        """
+        Check whether BGM hooks/plugins are currently installed for this tool.
+
+        Default implementation: for JSON-based integrations, load the settings
+        file and detect whether cleanup_hooks() would change anything. If
+        cleanup leaves the dict unchanged, there are no BGM hooks to remove,
+        so the tool is not configured.
+
+        Subclasses with file-based integrations (e.g. a standalone plugin file)
+        should override this with a direct file-existence check.
+
+        Returns:
+            True if BGM is already set up for this tool, False otherwise.
+        """
+        settings_path = self.get_settings_path()
+        if not settings_path.exists():
+            return False
+
+        try:
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return False
+
+        before = json.dumps(settings, sort_keys=True)
+        after_settings = self.cleanup_hooks(json.loads(before))
+        after = json.dumps(after_settings, sort_keys=True)
+        return before != after

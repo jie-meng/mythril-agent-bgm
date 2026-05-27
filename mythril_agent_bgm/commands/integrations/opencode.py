@@ -37,6 +37,10 @@ class OpenCodeIntegration(AIToolIntegration):
         """Not used for OpenCode (plugin-based cleanup). Returns settings unchanged."""
         return settings
 
+    def is_configured(self) -> bool:
+        """BGM is configured iff the plugin file exists."""
+        return self.get_settings_path().exists()
+
     def perform_setup(self) -> Tuple[bool, str]:
         """Write the BGM plugin JS file into OpenCode's plugin directory."""
         config_dir = self.get_config_dir()
