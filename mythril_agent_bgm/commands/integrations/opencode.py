@@ -80,7 +80,7 @@ class OpenCodeIntegration(AIToolIntegration):
             "// Re-run `bgm setup` to regenerate.\n"
             "\n"
             "export const BGMPlugin = async () => {\n"
-            "  let currentSessionID = null;\n"
+            "  let mainSessionID = null;\n"
             "  let isWorking = false;\n"
             "  let lastIdleTime = 0;\n"
             "  let isWaitingInput = false;\n"
@@ -98,10 +98,13 @@ class OpenCodeIntegration(AIToolIntegration):
             "\n"
             "      switch (event.type) {\n"
             '        case "session.created":\n'
-            "          currentSessionID = props?.info?.id ?? null;\n"
-            "          isWorking = false;\n"
-            "          lastIdleTime = 0;\n"
-            "          isWaitingInput = false;\n"
+            "          // Only treat the first session as main; subagents create their own sessions.\n"
+            "          if (mainSessionID === null) {\n"
+            "            mainSessionID = props?.info?.id ?? null;\n"
+            "            isWorking = false;\n"
+            "            lastIdleTime = 0;\n"
+            "            isWaitingInput = false;\n"
+            "          }\n"
             "          break;\n"
             "\n"
             '        case "message.updated":\n'
@@ -130,7 +133,8 @@ class OpenCodeIntegration(AIToolIntegration):
             "          break;\n"
             "\n"
             '        case "session.idle":\n'
-            "          if (isWorking) {\n"
+            "          // Only play done when the main session goes idle, not subagents.\n"
+            "          if (isWorking && (props?.info?.id ?? null) === mainSessionID) {\n"
             "            isWorking = false;\n"
             "            lastIdleTime = Date.now();\n"
             '            runBgm("play", "done");\n'
@@ -138,10 +142,12 @@ class OpenCodeIntegration(AIToolIntegration):
             "          break;\n"
             "\n"
             '        case "session.deleted":\n'
-            "          isWorking = false;\n"
-            "          isWaitingInput = false;\n"
-            '          runBgm("stop");\n'
-            "          currentSessionID = null;\n"
+            "          if ((props?.info?.id ?? null) === mainSessionID) {\n"
+            "            isWorking = false;\n"
+            "            isWaitingInput = false;\n"
+            '            runBgm("stop");\n'
+            "            mainSessionID = null;\n"
+            "          }\n"
             "          break;\n"
             "      }\n"
             "    },\n"
