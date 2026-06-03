@@ -38,8 +38,17 @@ class OpenCodeIntegration(AIToolIntegration):
         return settings
 
     def is_configured(self) -> bool:
-        """BGM is configured iff the plugin file exists."""
-        return self.get_settings_path().exists()
+        """BGM is configured iff the plugin file exists with current content."""
+        plugin_path = self.get_settings_path()
+        if not plugin_path.exists():
+            return False
+        bgm_path = shutil.which("bgm")
+        if not bgm_path:
+            return False
+        expected = self._generate_plugin(bgm_path)
+        if plugin_path.read_text(encoding="utf-8") != expected:
+            return False
+        return True
 
     def perform_setup(self) -> Tuple[bool, str]:
         """Write the BGM plugin JS file into OpenCode's plugin directory."""
