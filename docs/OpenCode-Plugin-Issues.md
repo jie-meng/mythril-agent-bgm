@@ -110,6 +110,51 @@ After applying the fix:
 2. Restart OpenCode
 3. The BGM should now play reliably across multiple prompts
 
+---
+
+## Issue: Done Music Plays on Subagent Completion (2026-06-03)
+
+### Problem
+
+When OpenCode uses subagents (e.g. via the `task` tool), each subagent creates its own session. When a subagent finishes, it triggers a `session.idle` event, which caused the "done" music to play prematurely — even though the main agent was still working.
+
+### Root Cause
+
+The original plugin had no concept of session hierarchy. All `session.idle` events were treated equally, so any subagent going idle would trigger the done sound.
+
+Additionally, two bugs were found during the fix:
+
+1. **Wrong field name for `session.idle`**: The SDK defines `EventSessionIdle` as `{ type: "session.idle"; properties: { sessionID: string } }`. The fix incorrectly used `props?.info?.id` instead of `props?.sessionID`, which would have made done music never play.
+
+2. **`is_configured()` only checked file existence**: After upgrading the plugin code, `bgm setup` would report "No changes to apply" because the old plugin file still existed. Fixed by comparing file content against the generated output.
+
+### SDK Event Structures (verified from `@opencode-ai/sdk`)
+
+| Event | Session ID field |
+|-------|-----------------|
+| `session.created` | `properties.info.id` (via `Session` object) |
+| `session.idle` | `properties.sessionID` (direct string) |
+| `session.deleted` | `properties.info.id` (via `Session` object) |
+
+The `Session` type also has a `parentID` field: subagent sessions have it set; top-level sessions do not. This is used to distinguish main sessions from subagent sessions.
+
+### Fix
+
+- Track `mainSessionID` from the first `session.created` event without a `parentID`
+- On `session.idle`, compare `props?.sessionID === mainSessionID` before playing done
+- On `session.deleted`, only stop and reset when the main session is deleted
+- `is_configured()` now compares plugin file content against `_generate_plugin()` output
+
+### Commits
+
+| Commit | Description |
+|--------|-------------|
+| `f3f7a29` | fix: only play done music on main agent idle, not subagents |
+| `3a79543` | fix: regenerate opencode plugin when content is outdated |
+| `0aaa6a6` | fix: correct session ID field names and use parentID for subagent detection |
+
+---
+
 ## Related OpenCode Issues
 
 | Issue | Title | Status |
