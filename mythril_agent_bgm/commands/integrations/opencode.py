@@ -107,8 +107,8 @@ class OpenCodeIntegration(AIToolIntegration):
             "\n"
             "      switch (event.type) {\n"
             '        case "session.created":\n'
-            "          // Only treat the first session as main; subagents create their own sessions.\n"
-            "          if (mainSessionID === null) {\n"
+            "          // Top-level sessions have no parentID; subagent sessions do.\n"
+            "          if (!props?.info?.parentID) {\n"
             "            mainSessionID = props?.info?.id ?? null;\n"
             "            isWorking = false;\n"
             "            lastIdleTime = 0;\n"
@@ -142,8 +142,9 @@ class OpenCodeIntegration(AIToolIntegration):
             "          break;\n"
             "\n"
             '        case "session.idle":\n'
+            "          // session.idle carries properties.sessionID (not properties.info.id).\n"
             "          // Only play done when the main session goes idle, not subagents.\n"
-            "          if (isWorking && (props?.info?.id ?? null) === mainSessionID) {\n"
+            "          if (isWorking && props?.sessionID === mainSessionID) {\n"
             "            isWorking = false;\n"
             "            lastIdleTime = Date.now();\n"
             '            runBgm("play", "done");\n'
@@ -151,7 +152,7 @@ class OpenCodeIntegration(AIToolIntegration):
             "          break;\n"
             "\n"
             '        case "session.deleted":\n'
-            "          if ((props?.info?.id ?? null) === mainSessionID) {\n"
+            "          if (props?.info?.id === mainSessionID) {\n"
             "            isWorking = false;\n"
             "            isWaitingInput = false;\n"
             '            runBgm("stop");\n'
