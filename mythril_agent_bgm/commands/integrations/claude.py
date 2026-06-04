@@ -28,7 +28,7 @@ class ClaudeIntegration(AIToolIntegration):
         - UserPromptSubmit: Start work music
         - Stop: Play done music
         - SessionEnd: Stop all music
-        - Notification: Play notification music
+        - Notification: Play notification music (only on permission_prompt, not idle_prompt)
 
         Args:
             settings: Existing settings dictionary
@@ -41,7 +41,10 @@ class ClaudeIntegration(AIToolIntegration):
             "Stop": [{"hooks": [{"type": "command", "command": "bgm play done"}]}],
             "SessionEnd": [{"hooks": [{"type": "command", "command": "bgm stop"}]}],
             "Notification": [
-                {"hooks": [{"type": "command", "command": "bgm play notification 0"}]}
+                {
+                    "matcher": "permission_prompt",
+                    "hooks": [{"type": "command", "command": "bgm play notification 0"}],
+                }
             ],
         }
 
