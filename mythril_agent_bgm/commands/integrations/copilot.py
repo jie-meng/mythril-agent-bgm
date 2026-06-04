@@ -58,6 +58,17 @@ class CopilotIntegration(AIToolIntegration):
         """BGM is configured iff the managed hooks file exists."""
         return self.get_settings_path().exists()
 
+    def is_up_to_date(self) -> bool:
+        """BGM is up to date iff the managed hooks file exists with the current expected content."""
+        hooks_path = self.get_settings_path()
+        if not hooks_path.exists():
+            return False
+        try:
+            current = json.loads(hooks_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        return current == self._build_hooks_payload()
+
     def perform_setup(self) -> Tuple[bool, str]:
         """Write the BGM hooks JSON into Copilot's user-level hooks directory."""
         config_dir = self.get_config_dir()

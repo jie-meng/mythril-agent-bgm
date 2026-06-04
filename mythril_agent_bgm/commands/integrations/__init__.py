@@ -169,3 +169,37 @@ class AIToolIntegration(ABC):
         after_settings = self.cleanup_hooks(json.loads(before))
         after = json.dumps(after_settings, sort_keys=True)
         return before != after
+
+    def is_up_to_date(self) -> bool:
+        """
+        Check whether the current settings already match what setup_hooks() would write.
+
+        Default implementation: for JSON-based integrations, apply setup_hooks() to a
+        copy of the current settings and compare. Returns True only when setup_hooks()
+        would produce no change — meaning the on-disk config is already the desired state.
+
+        Because setup_hooks() only modifies BGM-managed keys and leaves all other
+        settings (permissions, env, user-defined hooks, etc.) untouched, this comparison
+        is sensitive only to BGM-related keys. User changes to unrelated settings will
+        never trigger a false "outdated" result.
+
+        Subclasses with file-based integrations (e.g. OpenCode, Copilot) must override
+        this to compare file content against the expected generated output.
+
+        Returns:
+            True if the integration is configured and fully up to date, False otherwise.
+        """
+        settings_path = self.get_settings_path()
+        if not settings_path.exists():
+            return False
+
+        try:
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return False
+
+        before = json.dumps(settings, sort_keys=True)
+        after_settings = self.setup_hooks(json.loads(before))
+        after = json.dumps(after_settings, sort_keys=True)
+        return before == after

@@ -72,6 +72,7 @@ def curses_manage_integrations(
     status_labels: List[str],
     disabled: set[int] | None = None,
     status_is_hooked: set[int] | None = None,
+    outdated_indices: set[int] | None = None,
 ) -> List[bool] | None:
     """Interactive screen for managing per-tool BGM hook state.
 
@@ -102,6 +103,7 @@ def curses_manage_integrations(
 
     disabled = disabled or set()
     status_is_hooked = status_is_hooked or set()
+    outdated_indices = outdated_indices or set()
 
     selected = [s and (i not in disabled) for i, s in enumerate(initial_state)]
 
@@ -120,8 +122,8 @@ def curses_manage_integrations(
             attempts += 1
         return 0
 
-    def _diff_counts() -> Tuple[int, int]:
-        """Return (to_hook, to_unhook) — diff between selected and initial_state."""
+    def _diff_counts() -> Tuple[int, int, int]:
+        """Return (to_hook, to_unhook, to_update) — diff between selected and initial_state."""
         to_hook = sum(
             1
             for i in range(len(items))
@@ -132,7 +134,12 @@ def curses_manage_integrations(
             for i in range(len(items))
             if i not in disabled and not selected[i] and initial_state[i]
         )
-        return to_hook, to_unhook
+        to_update = sum(
+            1
+            for i in range(len(items))
+            if i not in disabled and selected[i] and initial_state[i] and i in outdated_indices
+        )
+        return to_hook, to_unhook, to_update
 
     def draw() -> None:
         stdscr.clear()
@@ -187,8 +194,8 @@ def curses_manage_integrations(
                     pass
 
         hooked_now = sum(1 for s in selected if s)
-        to_hook, to_unhook = _diff_counts()
-        if to_hook == 0 and to_unhook == 0:
+        to_hook, to_unhook, to_update = _diff_counts()
+        if to_hook == 0 and to_unhook == 0 and to_update == 0:
             summary = f"  {hooked_now}/{toggleable_count} hooked  (no changes)"
             summary_color = curses.color_pair(3)
         else:
@@ -197,6 +204,8 @@ def curses_manage_integrations(
                 parts.append(f"+{to_hook} hook")
             if to_unhook:
                 parts.append(f"-{to_unhook} unhook")
+            if to_update:
+                parts.append(f"~{to_update} update")
             summary = f"  {hooked_now}/{toggleable_count} hooked  ({', '.join(parts)})"
             summary_color = curses.color_pair(2)
         try:
@@ -233,17 +242,18 @@ def curses_manage_integrations(
 
 def _build_screen_inputs(
     integrations: List[AIToolIntegration],
-) -> Tuple[List[str], List[bool], List[str], set[int], set[int]]:
+) -> Tuple[List[str], List[bool], List[str], set[int], set[int], set[int]]:
     """Collect display data for :func:`curses_manage_integrations`.
 
     Returns:
-        ``(items, initial_state, status_labels, disabled, hooked_indices)``.
+        ``(items, initial_state, status_labels, disabled, hooked_indices, outdated_indices)``.
     """
     items: List[str] = []
     initial_state: List[bool] = []
     status_labels: List[str] = []
     disabled: set[int] = set()
     hooked_indices: set[int] = set()
+    outdated_indices: set[int] = set()
 
     for i, integration in enumerate(integrations):
         _, tool_name = integration.get_tool_info()
@@ -256,19 +266,25 @@ def _build_screen_inputs(
         elif integration.is_configured():
             hooked_indices.add(i)
             initial_state.append(True)
-            status_labels.append("hooked")
+            if not integration.is_up_to_date():
+                outdated_indices.add(i)
+                status_labels.append("outdated")
+            else:
+                status_labels.append("hooked")
         else:
             initial_state.append(False)
             status_labels.append("not hooked")
 
-    return items, initial_state, status_labels, disabled, hooked_indices
+    return items, initial_state, status_labels, disabled, hooked_indices, outdated_indices
 
 
 def manage_integrations_interactive(
     integrations: List[AIToolIntegration],
 ) -> List[bool] | None:
     """Launch curses UI. Returns target state per tool, or ``None`` if cancelled."""
-    items, initial_state, status_labels, disabled, hooked = _build_screen_inputs(integrations)
+    items, initial_state, status_labels, disabled, hooked, outdated = _build_screen_inputs(
+        integrations
+    )
     return curses.wrapper(
         curses_manage_integrations,
         "Manage AI tool integrations:",
@@ -277,6 +293,7 @@ def manage_integrations_interactive(
         status_labels=status_labels,
         disabled=disabled,
         status_is_hooked=hooked,
+        outdated_indices=outdated,
     )
 
 
@@ -320,6 +337,7 @@ def setup():
 
     to_hook: List[int] = []
     to_unhook: List[int] = []
+    to_update: List[int] = []
     for idx, (was, now) in enumerate(zip(initial_state, final_state)):
         if not check_tool_installed(integrations[idx]):
             continue
@@ -327,14 +345,17 @@ def setup():
             to_hook.append(idx)
         elif was and not now:
             to_unhook.append(idx)
+        elif was and now and not integrations[idx].is_up_to_date():
+            to_update.append(idx)
 
-    if not to_hook and not to_unhook:
+    if not to_hook and not to_unhook and not to_update:
         click.echo("No changes to apply.")
         sys.exit(0)
 
     click.echo(
         color_text(
-            f"\nApplying changes: +{len(to_hook)} hook, -{len(to_unhook)} unhook ...",
+            f"\nApplying changes: +{len(to_hook)} hook, -{len(to_unhook)} unhook,"
+            f" ~{len(to_update)} update ...",
             YELLOW,
         )
     )
@@ -360,6 +381,15 @@ def setup():
         else:
             fail_count += 1
             click.echo(color_text(f"  unhook {message}", RED))
+
+    for idx in to_update:
+        success, message = integrations[idx].perform_setup()
+        if success:
+            success_count += 1
+            click.echo(color_text(f"  update {message}", GREEN))
+        else:
+            fail_count += 1
+            click.echo(color_text(f"  update {message}", RED))
 
     click.echo("-" * 50)
     click.echo(color_text(f"Success: {success_count}, Failed: {fail_count}", BOLD))
