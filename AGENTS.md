@@ -27,6 +27,7 @@ AI agent guidelines for working on the AI BGM project.
   - Linux/macOS: `~/.config/mythril-agent-bgm/`
   - Windows: `%APPDATA%\mythril-agent-bgm\`
 - User selection in `selection.json` within config directory
+- **opencode & MiMo-Code share the same plugin system** (MiMo is a fork of opencode). Keep their integrations in sync when making changes.
 
 ### Design Principles
 
@@ -128,6 +129,12 @@ def my_command(option):
     # Use: option
     pass
 ```
+
+### AI Tool Integrations
+
+**MiMo-Code is a fork of opencode.** Their plugin systems are identical (same event bus, same hook interface, same JS plugin format). When modifying opencode or mimo integrations, always check if the change should apply to both. The only difference is the config directory:
+- opencode: `~/.config/opencode/plugins/`
+- mimo: `~/.config/mimocode/plugins/`
 
 ### Add AI Tool
 
