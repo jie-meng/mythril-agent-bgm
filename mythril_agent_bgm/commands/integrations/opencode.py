@@ -120,7 +120,6 @@ class OpenCodeIntegration(AIToolIntegration):
             "\n"
             '        case "message.updated":\n'
             "          if (\n"
-            "            !isWorking &&\n"
             '            props?.info?.role === "user" &&\n'
             "            Date.now() - lastIdleTime > DEBOUNCE_MS\n"
             "          ) {\n"
