@@ -39,7 +39,7 @@ Issues = "https://github.com/jie-meng/mythril-agent-bgm/issues"
 bgm = "mythril_agent_bgm.cli:cli"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["mythril_agent_bgm*"]
 exclude = ["tests", "tests.*"]
 namespaces = false
