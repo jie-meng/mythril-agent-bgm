@@ -211,7 +211,10 @@ def test_cleanup_removes_only_own_file(fake_home: Path, patched_home):
             assert ok
             ok, _ = integration.perform_cleanup()
             assert ok
-    assert not integration.get_settings_path().exists()
+            # Must be checked inside the patched home — outside it, this reads
+            # the developer's real ~/.pi extension and fails on any machine
+            # where bgm is actually hooked into pi.
+            assert not integration.get_settings_path().exists()
     assert other.exists()
     assert other.read_text(encoding="utf-8") == "export default function (pi) {}\n"
 
