@@ -54,6 +54,9 @@ bgm stop
 - Claude Code
 - Cline CLI (runtime hooks)
 - CodeBuddy Code
+- WorkBuddy AI
+  Note: hooks are written to `~/.workbuddy-ai/settings.json` (overseas edition)
+  or `~/.workbuddy/settings.json`.
 - GitHub Copilot CLI
 - Cursor Agent
 - Gemini CLI

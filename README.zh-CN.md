@@ -53,6 +53,8 @@ bgm stop
 - Claude Code
 - Cline CLI（基于运行时 hooks）
 - CodeBuddy Code
+- WorkBuddy AI
+  提示：配置写入 `~/.workbuddy-ai/settings.json`（海外版）或 `~/.workbuddy/settings.json`。
 - GitHub Copilot CLI
 - Cursor Agent
 - Gemini CLI

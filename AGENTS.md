@@ -136,6 +136,18 @@ def my_command(option):
 - opencode: `~/.config/opencode/plugins/`
 - mimo: `~/.config/mimocode/plugins/`
 
+**WorkBuddy AI runs the CodeBuddy engine.** Hook events, matcher semantics and
+the declarative `hooks` schema in `settings.json` are identical, so
+`WorkBuddyIntegration` *inherits* from `CodeBuddyIntegration` and only
+overrides the tool identity and config location. When changing the CodeBuddy
+hook set, WorkBuddy follows automatically — but if the two ever need to
+diverge, break the inheritance and give WorkBuddy its own `setup_hooks` /
+`cleanup_hooks`. The config directory differs:
+- CodeBuddy Code: `~/.codebuddy/settings.json`
+- WorkBuddy AI: `<config-dir>/settings.json`, where the config dir is
+  `$WORKBUDDY_CONFIG_DIR` if set, else the first existing of
+  `~/.workbuddy-ai` (overseas edition) / `~/.workbuddy` (other editions)
+
 ### Add AI Tool
 
 Adding a new AI tool integration:
