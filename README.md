@@ -65,6 +65,9 @@ bgm stop
   Note: restart `dsh web` after setup to activate the plugin.
 - Pi Coding Agent (extension-based)
   Note: run `/reload` in pi (or restart pi) after setup to activate the extension.
+- Qoder
+  Note: hooks are written to `~/.qoder/settings.json`. Restart Qoder after setup
+  (hook config does not hot-reload).
 - ZCode
 
 `bgm setup` only configures tools detected on your machine.

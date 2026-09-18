@@ -16,6 +16,7 @@ from mythril_agent_bgm.commands.integrations.gemini import GeminiIntegration
 from mythril_agent_bgm.commands.integrations.mimo import MimoIntegration
 from mythril_agent_bgm.commands.integrations.opencode import OpenCodeIntegration
 from mythril_agent_bgm.commands.integrations.pi import PiIntegration
+from mythril_agent_bgm.commands.integrations.qoder import QoderIntegration
 from mythril_agent_bgm.commands.integrations.workbuddy import WorkBuddyIntegration
 from mythril_agent_bgm.commands.integrations.zcode import ZcodeIntegration
 
@@ -43,6 +44,7 @@ class IntegrationRegistry:
         OpenCodeIntegration,
         DshIntegration,
         PiIntegration,
+        QoderIntegration,
         ZcodeIntegration,
     ]
 

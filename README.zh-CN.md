@@ -63,6 +63,8 @@ bgm stop
   提示：安装后请重启 `dsh web` 以启用插件。
 - Pi Coding Agent（基于扩展）
   提示：安装后请在 pi 内运行 `/reload`（或重启 pi）以启用扩展。
+- Qoder
+  提示：配置写入 `~/.qoder/settings.json`，安装后请重启 Qoder（hooks 不支持热加载）。
 - ZCode
 
 `bgm setup` 只会配置当前机器上已检测到的工具。
