@@ -14,10 +14,10 @@ spawns, so its settings file resolves to ``<config-dir>/settings.json``:
 * overseas edition (``workbuddy-ai`` product) -> ``~/.workbuddy-ai/settings.json``
 * other editions                              -> ``~/.workbuddy/settings.json``
 
-Because the hook schema is identical, this integration reuses the hook set
-from :class:`CodeBuddyIntegration` and only overrides the tool identity and
-the config location. If the two ever need to diverge, break the inheritance
-and copy the hook map.
+Because the hook schema is identical, this integration reuses the common hook
+set from :class:`CodeBuddyIntegration`, then adds the WorkBuddy-specific
+question-dialog hooks in this module. Keeping that difference here prevents a
+WorkBuddy behavior change from silently affecting CodeBuddy.
 
 Reference: https://www.codebuddy.ai/docs/cli/hooks
 """
@@ -71,3 +71,30 @@ class WorkBuddyIntegration(CodeBuddyIntegration):
     def get_settings_path(self) -> Path:
         """Get the WorkBuddy AI settings path (``<config-dir>/settings.json``)."""
         return self.get_config_dir() / "settings.json"
+
+    def setup_hooks(self, settings: dict) -> dict:
+        """Add WorkBuddy's notification and resume hooks for question dialogs.
+
+        ``AskUserQuestion`` is a regular tool call, not a permission prompt,
+        so WorkBuddy does not emit the ``Notification/permission_prompt``
+        event for it. The PreToolUse hook is the signal immediately before the
+        question UI appears; the inherited PostToolUse hook switches back to
+        work music after the answer is submitted.
+        """
+        settings = super().setup_hooks(settings)
+        settings["hooks"]["PreToolUse"] = [
+            {
+                "matcher": "AskUserQuestion",
+                "hooks": [{"type": "command", "command": "bgm play notification 0"}],
+            }
+        ]
+        return settings
+
+    def cleanup_hooks(self, settings: dict) -> dict:
+        """Remove WorkBuddy's question-dialog hook and common BGM hooks."""
+        settings = super().cleanup_hooks(settings)
+        hooks = settings.get("hooks", {})
+        hooks.pop("PreToolUse", None)
+        if not hooks:
+            settings.pop("hooks", None)
+        return settings

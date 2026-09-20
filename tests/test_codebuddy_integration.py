@@ -61,11 +61,9 @@ def test_setup_adds_all_hooks(fake_home: Path, patched_home):
         assert hooks["SessionEnd"][0]["hooks"][0]["command"] == "bgm stop"
         assert hooks["Notification"][0]["matcher"] == "permission_prompt"
         assert hooks["Notification"][0]["hooks"][0]["command"] == "bgm play notification 0"
-        # AskUserQuestion dialogs emit no Notification event (the
-        # elicitation_dialog matcher is never fired), so the alert rides on
-        # PreToolUse, which runs right before the question dialog appears.
-        assert hooks["PreToolUse"][0]["matcher"] == "AskUserQuestion"
-        assert hooks["PreToolUse"][0]["hooks"][0]["command"] == "bgm play notification 0"
+        # CodeBuddy keeps its original hook set; the AskUserQuestion alert
+        # is intentionally scoped to WorkBuddy.
+        assert "PreToolUse" not in hooks
         # Resume hooks: fire after the user answers a permission prompt /
         # question dialog; bgm play work 0 is idempotent, so it only
         # switches back to work (never restarts an already playing track).
@@ -116,7 +114,6 @@ def test_cleanup_removes_only_bgm_hooks(fake_home: Path, patched_home):
         assert ok
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
     assert "PostToolUse" not in settings["hooks"]
-    assert "PreToolUse" not in settings["hooks"]
     assert settings["hooks"]["ConfigChange"] == [{"hooks": [{"type": "command", "command": "x"}]}]
 
 
@@ -138,23 +135,6 @@ def test_up_to_date_detects_missing_resume_hook(fake_home: Path, patched_home):
     )
     with patched_home:
         integration = CodeBuddyIntegration()
-        assert integration.is_configured()
-        assert not integration.is_up_to_date()
-
-
-def test_up_to_date_detects_missing_ask_user_question_hook(fake_home: Path, patched_home):
-    """A config that predates the AskUserQuestion alert must be seen as outdated."""
-    integration = CodeBuddyIntegration()
-    _write_settings(fake_home, {})
-    with patched_home:
-        ok, _ = integration.perform_setup()
-        assert ok
-        settings_path = fake_home / ".codebuddy" / "settings.json"
-        settings = json.loads(settings_path.read_text(encoding="utf-8"))
-        # Drop only the AskUserQuestion alert, keep everything else.
-        settings["hooks"].pop("PreToolUse")
-        settings_path.write_text(json.dumps(settings), encoding="utf-8")
-
         assert integration.is_configured()
         assert not integration.is_up_to_date()
 

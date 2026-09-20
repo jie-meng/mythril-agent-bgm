@@ -146,6 +146,23 @@ def test_setup_cleanup_roundtrip(fake_home: Path, patched_home):
         assert not integration.is_configured()
 
 
+def test_up_to_date_detects_missing_ask_user_question_hook(fake_home: Path, patched_home):
+    """A WorkBuddy config without the question alert is outdated."""
+    _write_settings(fake_home / ".workbuddy-ai", {})
+    settings_path = fake_home / ".workbuddy-ai" / "settings.json"
+
+    with patched_home:
+        integration = WorkBuddyIntegration()
+        ok, _ = integration.perform_setup()
+        assert ok
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        settings["hooks"].pop("PreToolUse")
+        settings_path.write_text(json.dumps(settings), encoding="utf-8")
+
+        assert integration.is_configured()
+        assert not integration.is_up_to_date()
+
+
 def test_cleanup_removes_only_bgm_hooks(fake_home: Path, patched_home):
     _write_settings(
         fake_home / ".workbuddy-ai",
