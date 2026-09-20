@@ -36,6 +36,12 @@ class CodeBuddyIntegration(AIToolIntegration):
         - Stop: Play done music
         - SessionEnd: Stop all music
         - Notification: Play notification music (only on permission_prompt, not idle_prompt)
+        - PreToolUse(AskUserQuestion): Play notification music when the agent
+          shows a multiple-choice question dialog. AskUserQuestion is a plain
+          tool call — it does not go through the permission-prompt path and
+          the engine emits no Notification event for it (the
+          ``elicitation_dialog`` matcher is never fired) — so PreToolUse is
+          the only signal that runs at the moment the dialog appears.
         - PostToolUse/ElicitationResult/PermissionDenied: Switch back to work
           music. These fire after the user answers a permission prompt or
           question dialog. ``bgm play work 0`` is idempotent (a no-op while
@@ -55,6 +61,12 @@ class CodeBuddyIntegration(AIToolIntegration):
             "Notification": [
                 {
                     "matcher": "permission_prompt",
+                    "hooks": [{"type": "command", "command": "bgm play notification 0"}],
+                }
+            ],
+            "PreToolUse": [
+                {
+                    "matcher": "AskUserQuestion",
                     "hooks": [{"type": "command", "command": "bgm play notification 0"}],
                 }
             ],
@@ -81,6 +93,7 @@ class CodeBuddyIntegration(AIToolIntegration):
             "Stop",
             "SessionEnd",
             "Notification",
+            "PreToolUse",
             "PostToolUse",
             "ElicitationResult",
             "PermissionDenied",

@@ -102,6 +102,10 @@ def test_setup_adds_all_hooks(fake_home: Path, patched_home):
         assert hooks["SessionEnd"][0]["hooks"][0]["command"] == "bgm stop"
         assert hooks["Notification"][0]["matcher"] == "permission_prompt"
         assert hooks["Notification"][0]["hooks"][0]["command"] == "bgm play notification 0"
+        # AskUserQuestion option dialogs never emit a Notification event, so
+        # the alert rides on PreToolUse (fires right before the dialog shows).
+        assert hooks["PreToolUse"][0]["matcher"] == "AskUserQuestion"
+        assert hooks["PreToolUse"][0]["hooks"][0]["command"] == "bgm play notification 0"
         for event in ("PostToolUse", "ElicitationResult", "PermissionDenied"):
             assert event in hooks
             assert hooks[event][0]["hooks"][0]["command"] == "bgm play work 0"
@@ -157,6 +161,7 @@ def test_cleanup_removes_only_bgm_hooks(fake_home: Path, patched_home):
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
 
     assert "PostToolUse" not in settings["hooks"]
+    assert "PreToolUse" not in settings["hooks"]
     assert settings["hooks"]["ConfigChange"] == [{"hooks": [{"type": "command", "command": "x"}]}]
 
 
