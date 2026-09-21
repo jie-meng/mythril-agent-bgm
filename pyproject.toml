@@ -8,7 +8,8 @@ version = "0.1.11"
 description = "AI CLI Background Music Player - Plays work music in loop and done music when finished"
 readme = "README.md"
 requires-python = ">=3.9"
-license = "MIT"
+# Table form: setuptools rejects a bare SPDX string here (PEP 621 oneOf).
+license = { text = "MIT" }
 authors = [
     {name = "Jie Meng", email = "jmengx@gmail.com"}
 ]

@@ -282,6 +282,84 @@ def test_outdated_when_index_js_modified(fake_home: Path, patched_home):
             assert not integration.is_up_to_date()
 
 
+# dsh's profile scaffold writes cordis.patch.yml with this exact content:
+# three comment lines plus a bare `[]` empty-array placeholder.
+_DSH_SCAFFOLD_PATCH = (
+    "# Your patch layer for this dsh profile, applied after every bundle layer:\n"
+    "# a top-level YAML array of loader patch entries (id-targeted config\n"
+    "# overrides, disables, and insert lists; `!!js` expressions allowed).\n"
+    "[]\n"
+)
+_ENTRY = "- insert:\n    - id: mythril-agent-bgm\n      name: mythril-agent-bgm-dsh\n"
+
+
+def test_setup_replaces_dsh_empty_array_placeholder(fake_home: Path, patched_home):
+    # Regression: dsh scaffolds cordis.patch.yml with a bare `[]`; appending
+    # the entry after it yields invalid YAML, and dsh fails loud on an
+    # unparsable patch layer ("end of the stream or a document separator is
+    # expected"). The placeholder must be dropped, not appended after.
+    patch = fake_home / ".dsh" / "profiles" / "web" / "cordis.patch.yml"
+    patch.write_text(_DSH_SCAFFOLD_PATCH, encoding="utf-8")
+    with patched_home:
+        with mock.patch("shutil.which", return_value=str(_make_bgm(fake_home))):
+            assert DshIntegration().perform_setup()[0]
+    result = patch.read_text(encoding="utf-8")
+    assert "[]" not in result
+    assert result == _DSH_SCAFFOLD_PATCH.replace("[]\n", "") + _ENTRY
+
+
+def test_setup_repairs_patch_broken_by_placeholder(fake_home: Path, patched_home):
+    # An already-installed entry sitting below the placeholder: setup is
+    # idempotent for the entry, but must still strip the placeholder so an
+    # existing broken install is repaired on the next `bgm setup`.
+    patch = fake_home / ".dsh" / "profiles" / "web" / "cordis.patch.yml"
+    patch.write_text(_DSH_SCAFFOLD_PATCH + _ENTRY, encoding="utf-8")
+    with patched_home:
+        with mock.patch("shutil.which", return_value=str(_make_bgm(fake_home))):
+            integration = DshIntegration()
+            assert integration.perform_setup()[0]
+            assert integration.is_up_to_date()
+    assert patch.read_text(encoding="utf-8") == _DSH_SCAFFOLD_PATCH.replace("[]\n", "") + _ENTRY
+
+
+def test_append_preserves_nested_empty_arrays(fake_home: Path, patched_home):
+    # Only the top-level `[]` placeholder goes; indented empty arrays (a
+    # nested `config: []`) belong to other entries and must survive.
+    patch = fake_home / ".dsh" / "profiles" / "web" / "cordis.patch.yml"
+    other = "- id: session-title-llm\n  config: []\n"
+    patch.write_text(other, encoding="utf-8")
+    with patched_home:
+        with mock.patch("shutil.which", return_value=str(_make_bgm(fake_home))):
+            assert DshIntegration().perform_setup()[0]
+    assert patch.read_text(encoding="utf-8") == other + _ENTRY
+
+
+def test_cleanup_restores_empty_array_placeholder(fake_home: Path, patched_home):
+    # After cleanup the file holds comments only, which parses as `null` and
+    # would trip "must be a top-level YAML array": the `[]` placeholder has
+    # to come back (unless nothing at all is left, in which case the file is
+    # deleted and dsh treats it as "no user layer").
+    patch = fake_home / ".dsh" / "profiles" / "web" / "cordis.patch.yml"
+    patch.write_text(_DSH_SCAFFOLD_PATCH.replace("[]\n", "") + _ENTRY, encoding="utf-8")
+    with patched_home:
+        with mock.patch("shutil.which", return_value=str(_make_bgm(fake_home))):
+            assert DshIntegration().perform_cleanup()[0]
+    assert patch.read_text(encoding="utf-8") == _DSH_SCAFFOLD_PATCH
+
+
+def test_setup_cleanup_roundtrip_over_dsh_scaffold(fake_home: Path, patched_home):
+    # Full roundtrip on a scaffolded profile: the file is left byte-identical
+    # to what dsh generated, so dsh still parses it after cleanup.
+    patch = fake_home / ".dsh" / "profiles" / "web" / "cordis.patch.yml"
+    patch.write_text(_DSH_SCAFFOLD_PATCH, encoding="utf-8")
+    with patched_home:
+        with mock.patch("shutil.which", return_value=str(_make_bgm(fake_home))):
+            integration = DshIntegration()
+            assert integration.perform_setup()[0]
+            assert integration.perform_cleanup()[0]
+    assert patch.read_text(encoding="utf-8") == _DSH_SCAFFOLD_PATCH
+
+
 def test_setup_requires_profile_dir(tmp_path: Path):
     # No .dsh web profile dir -> setup reports failure without creating files.
     with mock.patch("mythril_agent_bgm.commands.integrations.dsh.Path.home", return_value=tmp_path):

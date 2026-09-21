@@ -13,6 +13,13 @@ The plugin subscribes to dsh session/agent events (``agent/status``,
 detached child process. Patch-file edits are plain string operations (no YAML
 dependency), and the generated plugin swallows all spawn errors so an
 unavailable ``bgm`` can never break a dsh session.
+
+Patch-file note: dsh scaffolds ``cordis.patch.yml`` with a bare ``[]``
+(empty-array placeholder) line. A block-sequence entry appended after it is
+invalid YAML — dsh parses patch files with a fail-loud policy, so the profile
+would refuse to boot. Appending therefore drops that placeholder, and cleanup
+restores it when no entries are left (a comment-only file parses as ``null``,
+which dsh also rejects as "must be a top-level YAML array").
 """
 
 import json
@@ -173,6 +180,10 @@ _PATCH_ENTRY = "- insert:\n" "    - id: mythril-agent-bgm\n" "      name: mythri
 # Matches one top-level `- insert:` block: the header line plus its indented
 # child lines. Blank lines (and the next top-level entry) end the block.
 _PATCH_BLOCK_RE = re.compile(r"^- insert:(?:\r?\n[ \t][^\r\n]*)*", re.MULTILINE)
+
+# Matches dsh's empty-array placeholder: a bare `[]` on its own top-level
+# line (column 0, so nested `config: []` values are never touched).
+_EMPTY_PATCH_RE = re.compile(r"^\[\][ \t]*(?:\r?\n)?", re.MULTILINE)
 
 
 class _PatchFileError(Exception):
@@ -345,14 +356,47 @@ class DshIntegration(AIToolIntegration):
     def _append_patch_entry_to_content(content: str) -> str:
         """Return ``content`` with the BGM insert entry appended.
 
-        The appended entry uses the file's existing line-ending style (CRLF
-        when the content contains ``\\r\\n``, LF otherwise) so the file's
-        style is preserved; every pre-existing byte is untouched.
+        dsh's scaffolded empty-array placeholder (``[]``) is dropped first:
+        it cannot coexist with the appended block-sequence entry. The appended
+        entry uses the file's existing line-ending style (CRLF when the
+        content contains ``\\r\\n``, LF otherwise) so the file's style is
+        preserved; every other pre-existing byte is untouched.
         """
+        content = DshIntegration._strip_empty_placeholder(content)
         eol = "\r\n" if "\r\n" in content else "\n"
         if content and not content.endswith("\n"):
             content += eol
         return content + _PATCH_ENTRY.replace("\n", eol)
+
+    @staticmethod
+    def _strip_empty_placeholder(content: str) -> str:
+        """Remove dsh's top-level ``[]`` empty-array placeholder.
+
+        A file containing both ``[]`` and any ``- `` entry is invalid YAML,
+        and dsh fails loud on an unparsable patch layer, so the placeholder
+        must never survive alongside an entry. Nested empty arrays (indented,
+        e.g. ``config: []``) are left alone.
+        """
+        return _EMPTY_PATCH_RE.sub("", content)
+
+    @staticmethod
+    def _restore_empty_placeholder(content: str) -> str:
+        """Re-add dsh's ``[]`` placeholder when no top-level entry is left.
+
+        Comment-only content parses as ``null``, which dsh rejects ("must be
+        a top-level YAML array"), so a patch file that still exists after our
+        entry is removed needs the placeholder back. Content that already has
+        an entry (or is empty — the caller deletes such a file) is returned
+        unchanged.
+        """
+        if not content.strip():
+            return content
+        if any(line.startswith("- ") for line in content.splitlines()):
+            return content
+        eol = "\r\n" if "\r\n" in content else "\n"
+        if not content.endswith(("\n", "\r")):
+            content += eol
+        return content + "[]" + eol
 
     @staticmethod
     def _strip_patch_entry(content: str) -> str:
@@ -379,21 +423,28 @@ class DshIntegration(AIToolIntegration):
                 # The block sat in the middle of the file: something follows
                 # it, so every remaining byte (including blank lines the
                 # tail itself ends with at EOF) must be preserved as-is.
-                return content[:start] + content[end:]
+                return DshIntegration._restore_empty_placeholder(
+                    content[:start] + content[end:]
+                )
             result = content[:start]
             # The block sat at the end of the file: drop a leftover trailing
             # blank line so the file ends with a single line ending, keeping
             # the file's own style (identity when nothing extra remains).
             eol = "\r\n" if "\r\n" in content else "\n"
-            return re.sub(r"(?:\r?\n)+$", eol, result)
+            return DshIntegration._restore_empty_placeholder(
+                re.sub(r"(?:\r?\n)+$", eol, result)
+            )
         return content
 
     def _append_patch_entry(self) -> bool:
         """Append the BGM insert entry to cordis.patch.yml (idempotent).
 
-        Returns True when the entry was appended, False when it was already
-        present. Raises ``_PatchFileError`` if the patch file cannot be read
-        or written.
+        Also repairs a file left invalid by an older setup: dsh's scaffolded
+        ``[]`` placeholder is dropped even when our entry is already present,
+        because a placeholder plus any entry is unparsable and dsh fails loud
+        on it. Returns True when the file was modified, False when it was
+        already correct. Raises ``_PatchFileError`` if the patch file cannot
+        be read or written.
         """
         patch_path = self._get_patch_path()
         try:
@@ -401,9 +452,13 @@ class DshIntegration(AIToolIntegration):
         except (OSError, UnicodeDecodeError) as exc:
             raise _PatchFileError(str(exc)) from exc
         if self._patch_entry_exists(content):
+            new_content = self._strip_empty_placeholder(content)
+        else:
+            new_content = self._append_patch_entry_to_content(content)
+        if new_content == content:
             return False
         try:
-            patch_path.write_text(self._append_patch_entry_to_content(content), encoding="utf-8")
+            patch_path.write_text(new_content, encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:
             raise _PatchFileError(str(exc)) from exc
         return True
