@@ -155,6 +155,118 @@ The `Session` type also has a `parentID` field: subagent sessions have it set; t
 
 ---
 
+## Issue: Plugin Rejected by OpenCode 2.x (V2 Plugin API) (2026-09-24)
+
+### Problem
+
+OpenCode 2.0.15 refused to load the generated plugin and showed, at startup:
+
+```text
+Server plugin error
+Plugin: ~/.config/opencode/plugins/opencode-bgm.js
+Status: failed        Runtime: server
+Error: Plugin must export a default definition with an id and an effect or setup function.
+```
+
+`bgm setup` had written the plugin successfully — the file existed and was valid
+JavaScript. The failure was entirely on OpenCode's side.
+
+### Root Cause
+
+OpenCode 2.x replaced the V1 plugin API. The module schema is now a struct, and
+the loader decodes the **module namespace**, not a callable:
+
+```ts
+// packages/core/src/plugin/module.ts @ v2.0.15
+const Module = Schema.Struct({
+  default: Schema.Union([
+    Schema.Struct({ id: Schema.String, effect: /* function */ }),
+    Schema.Struct({ id: Schema.String, setup: /* function */ }),
+  ]),
+})
+```
+
+Our generated file default-exported a function (the V1 contract), so decoding
+failed on the `default` key. The server log carries the real cause, which the TUI
+hides behind its summary line:
+
+```text
+message="failed to load plugin" target=.../opencode-bgm.js ref=err_4baddd2c
+cause="Cause([Fail(PluginModule.LoadError: Plugin must export a default definition
+ with an id and an effect or setup function.
+ (cause: SchemaError(Expected object\n  at [\"default\"])))])"
+```
+
+`SchemaError(Expected object at ["default"])` — that is the whole story: a function
+is not an object. Always read `cause=` in `~/.local/share/opencode/log/opencode.log`,
+keyed by the `ref=err_...` shown in the TUI.
+
+### Two Traps Beyond the Export Shape
+
+**1. `event.properties` no longer exists.** V2 events are flat
+(`{ id, created, type, location?, durable?, data }`), so V1 handlers reading
+`event.properties.info.role` now see `undefined` — a silent no-op, not an error.
+`message.updated` is gone as well; the work/done anchors became
+`session.inbox.enqueued`, `session.execution.started` and
+`session.execution.succeeded` / `.failed` / `.interrupted`.
+
+**2. One plugin instance per open location, receiving every event.** Verified with
+a probe plugin while 7 directories were open in the shared `opencode serve
+--service` daemon: a single `session.execution.started` reached all 7 instances
+(the daemon holds one multiplexed `/api/event` SSE fan-out). Filtering only on
+`data.location.directory` was **not** enough, because the location is a property of
+the *event*; `session.inbox.enqueued`, `session.execution.*` and `session.status`
+do not repeat it inside `data` (`session.execution.started` has `location:
+undefined` entirely). Every instance therefore adopted the same session and each
+one restarted the music: 6–7 `bgm play work 0` calls per run.
+
+The working gate is: drop events whose own `location.directory` differs from
+`ctx.location.directory`, adopt exactly one main session per instance (subagents are
+skipped via `data.parentID`), and afterwards key everything on that `sessionID`.
+After the fix: exactly one `play work 0` and one `play done` per run.
+
+### Migration Map (V1 → V2)
+
+| V1 | V2 |
+|----|----|
+| `export default async () => ({ ...hooks })` | `export default { id, setup(ctx) { ...; return cleanup } }` |
+| returned hooks object | imperative `ctx.<domain>.hook(...)` / `ctx.<domain>.transform(...)` registrations |
+| `event: async ({ event })` hook | `for await (const event of ctx.event.subscribe({ signal }))` |
+| `event.properties` | `event.data` |
+| `message.updated` (`role === "user"`) | `session.inbox.enqueued` (`data.item.type === "user"`) |
+| `session.idle` / `session.status` | still present, plus `session.execution.{started,succeeded,failed,interrupted}` |
+| `tool.execute.before` (`tool === "question"`) | no tool-name field in `session.tool.*`; use `form.created` / `permission.asked` |
+| `session.created` → `properties.info.id` | `data.sessionID` (+ `data.parentID`, `data.location.directory`) |
+
+### Fix
+
+`_generate_plugin()` now renders `_PLUGIN_TEMPLATE` (an OpenCode 2.x `{ id, setup }`
+module) instead of the V1 function, and the path is injected with `json.dumps()` so
+Windows separators survive as a valid JS string literal. Subscriptions reconnect if
+the SSE stream ends, and `setup` returns an abort-based cleanup.
+
+### Not Changed
+
+- `mimo.py` still emits the V1 shape. MiMo Code is an OpenCode fork and only shares
+  the plugin system up to the version it forked; it is not installed here, so its
+  contract is unverified. Do not port this blindly — check `mimo`'s plugin loader first.
+- OpenCode 1.x users: the V2 shape is what 2.x wants; if a 1.x load error ever
+  appears, that is the trade-off to revisit.
+
+### Verification
+
+| Step | Result |
+|------|--------|
+| `node --check` on generated plugin (Unix + Windows path) | pass |
+| Daemon log after reload | no `failed to load plugin` for `opencode-bgm.js` |
+| `opencode run` in a fresh directory, `bgm` stubbed by a logging wrapper | `1 play work 0`, `1 play done` |
+| Same run before the location fix | 7 `play work 0` + 7 `play done` |
+| `pytest tests/` | 113 passed |
+| `black --check`, `mypy` on the changed file | clean |
+| Installed-package drift | site-packages copy synced from the repo (0.1.11 vs 0.1.12) so `bgm setup` cannot write the V1 file back; `is_up_to_date()` → `True` |
+
+---
+
 ## Related OpenCode Issues
 
 | Issue | Title | Status |
