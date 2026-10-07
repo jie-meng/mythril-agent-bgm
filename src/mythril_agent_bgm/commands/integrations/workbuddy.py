@@ -19,6 +19,10 @@ set from :class:`CodeBuddyIntegration`, then adds the WorkBuddy-specific
 question-dialog hooks in this module. Keeping that difference here prevents a
 WorkBuddy behavior change from silently affecting CodeBuddy.
 
+Like CodeBuddy, hook commands embed the absolute path of ``bgm``: the
+WorkBuddy desktop engine runs its CLI with a sanitized PATH (no pyenv /
+homebrew shims), so a bare ``bgm`` in a hook exits 127.
+
 Reference: https://www.codebuddy.ai/docs/cli/hooks
 """
 
@@ -26,7 +30,7 @@ import os
 from pathlib import Path
 from typing import Tuple
 
-from mythril_agent_bgm.commands.integrations.codebuddy import CodeBuddyIntegration
+from mythril_agent_bgm.commands.integrations.codebuddy import _bgm_command, CodeBuddyIntegration
 
 #: Config directories to probe, in priority order. ``.workbuddy-ai`` is the
 #: overseas WorkBuddy AI data dir; ``.workbuddy`` is the fallback used by the
@@ -85,7 +89,9 @@ class WorkBuddyIntegration(CodeBuddyIntegration):
         settings["hooks"]["PreToolUse"] = [
             {
                 "matcher": "AskUserQuestion",
-                "hooks": [{"type": "command", "command": "bgm play notification 0"}],
+                "hooks": [
+                    {"type": "command", "command": _bgm_command("play", "notification", "0")}
+                ],
             }
         ]
         return settings

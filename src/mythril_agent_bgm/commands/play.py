@@ -4,10 +4,12 @@ Play music command for AI BGM.
 """
 
 import os
+import shutil
 import sys
 import time
 import subprocess
 import random
+from pathlib import Path
 from typing import Optional
 
 import click
@@ -248,6 +250,29 @@ def is_music_type_playing(music_type: str) -> bool:
     return ProcessManager.check_process_exists(pid)
 
 
+def _bgm_executable() -> str:
+    """
+    Resolve the executable used to spawn the BGM daemon.
+
+    An absolute path is required because host applications (e.g. WorkBuddy)
+    run their hooks with a sanitized PATH that has no pyenv shims, where a
+    bare ``bgm`` fails to resolve. When ``bgm`` itself was launched by a path
+    that already names it, ``sys.argv[0]`` carries that path -- but only trust
+    it when it actually looks like bgm, so the local development entry point
+    (``main.py``) is never spawned as the daemon. The bare name is the last
+    resort so a normal shell invocation keeps working unchanged.
+    """
+    which_path = shutil.which("bgm")
+    if which_path:
+        return which_path
+
+    argv0 = sys.argv[0] if sys.argv else ""
+    if argv0 and Path(argv0).stem.lower().startswith("bgm"):
+        return argv0
+
+    return "bgm"
+
+
 def start_background_player(music_type: str, loop: int) -> None:
     """
     Start the BGM player in the background as a daemon process.
@@ -272,7 +297,7 @@ def start_background_player(music_type: str, loop: int) -> None:
         previous_pid = kill_existing_process()
 
         # Use subprocess to start a detached background process
-        args = ["bgm", "play", "--daemon", music_type, str(loop)]
+        args = [_bgm_executable(), "play", "--daemon", music_type, str(loop)]
 
         # Start the background process
         if is_windows():
