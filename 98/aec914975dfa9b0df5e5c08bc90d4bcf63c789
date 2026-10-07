@@ -1,0 +1,24 @@
+src/mythril_agent_bgm/commands/integrations/codebuddy.py
+  h_e0538e51a4c5ef 10-15,19-20,27-39,73-77,81-83,86-94
+src/mythril_agent_bgm/commands/integrations/workbuddy.py
+  h_e0538e51a4c5ef 22-25,33,92-94
+src/mythril_agent_bgm/commands/play.py
+  h_e0538e51a4c5ef 7,12,253-275,300
+tests/test_codebuddy_integration.py
+  h_e0538e51a4c5ef 13-32,79-81,83,92,162-229
+tests/test_play_state.py
+  h_e0538e51a4c5ef 4,10-14,110-176
+tests/test_workbuddy_integration.py
+  h_e0538e51a4c5ef 16-37,122-124,126,130,133,220-258
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "98aec914975dfa9b0df5e5c08bc90d4bcf63c789",
+  "prompts": {},
+  "humans": {
+    "h_e0538e51a4c5ef": {
+      "author": "Jie Meng <jmengxy@gmail.com>"
+    }
+  }
+}
