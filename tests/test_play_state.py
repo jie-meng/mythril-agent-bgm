@@ -11,6 +11,7 @@ from mythril_agent_bgm.commands.play import (
     _bgm_executable,
     is_music_type_playing,
     start_background_player,
+    wait_for_playback_state,
 )
 from mythril_agent_bgm.utils.common import (
     get_state_file,
@@ -44,8 +45,27 @@ def patched_player(tmp_path: Path):
             "mythril_agent_bgm.commands.play.ProcessManager.check_process_exists",
             side_effect=lambda pid: True,
         ),
+        # Spawned daemons are mocked in these tests, so nothing would ever
+        # write the state file; keep the wait from burning its full timeout.
+        mock.patch("mythril_agent_bgm.commands.play.wait_for_playback_state"),
     ):
         yield
+
+
+class _LockRecorder:
+    """Stand-in for FileLock that records whether the lock is held."""
+
+    def __init__(self):
+        self.held = False
+
+    def __call__(self, path):
+        return self
+
+    def __enter__(self):
+        self.held = True
+
+    def __exit__(self, *exc):
+        self.held = False
 
 
 def test_save_load_clear_state(patched_config_dir):
@@ -86,6 +106,80 @@ def test_play_noop_when_same_type_playing(patched_player):
     with mock.patch("mythril_agent_bgm.commands.play.subprocess.Popen") as popen:
         start_background_player("work", 0)
     popen.assert_not_called()
+
+
+def test_play_rechecks_after_waiting_for_lock(patched_player):
+    # Concurrent hooks (Qoder fires PostToolUse per parallel tool call) all
+    # pass the fast-path check before any daemon exists. The queued callers
+    # must re-check under the lock and leave the new daemon alone, or every
+    # waiter restarts the track.
+    lock = _LockRecorder()
+    lock_states = []
+
+    def playing(music_type):
+        lock_states.append(lock.held)
+        return len(lock_states) == 2
+
+    with (
+        mock.patch("mythril_agent_bgm.commands.play.FileLock", lock),
+        mock.patch(
+            "mythril_agent_bgm.commands.play.is_music_type_playing",
+            side_effect=playing,
+        ),
+        mock.patch("mythril_agent_bgm.commands.play.subprocess.Popen") as popen,
+        mock.patch("mythril_agent_bgm.commands.play.kill_existing_process") as kill,
+    ):
+        start_background_player("work", 0)
+    # The second check must happen while the lock is held; a check moved
+    # outside the lock leaves the TOCTOU open.
+    assert lock_states == [False, True]
+    popen.assert_not_called()
+    kill.assert_not_called()
+
+
+def test_play_waits_for_playback_state_under_lock(patched_player):
+    # The lock must be held until the daemon claims its music type, or a
+    # queued caller reads "nothing playing" and restarts the new daemon.
+    # The wait must also come AFTER the spawn: waiting first would just
+    # block until the timeout and then let every caller start a daemon.
+    lock = _LockRecorder()
+    events = []
+
+    def spawn(*args, **kwargs):
+        events.append(("spawn", lock.held))
+
+    def wait_pid(*args, **kwargs):
+        events.append(("pid", lock.held))
+
+    def wait_state(music_type, timeout=5.0):
+        events.append(("state", lock.held))
+
+    with (
+        mock.patch("mythril_agent_bgm.commands.play.FileLock", lock),
+        mock.patch(
+            "mythril_agent_bgm.commands.play.wait_for_playback_state", side_effect=wait_state
+        ),
+        mock.patch("mythril_agent_bgm.commands.play.wait_for_daemon_pid", side_effect=wait_pid),
+        mock.patch("mythril_agent_bgm.commands.play.kill_existing_process", return_value=None),
+        mock.patch("mythril_agent_bgm.commands.play.subprocess.Popen", side_effect=spawn),
+        mock.patch("mythril_agent_bgm.commands.play.time.sleep"),
+    ):
+        start_background_player("work", 0)
+    assert events == [("spawn", True), ("pid", True), ("state", True)]
+
+
+def test_wait_for_playback_state_returns_once_daemon_claims_type(patched_player):
+    # The daemon writes state only after loading the track; the caller must
+    # not release the start lock before that, or queued hooks restart it.
+    with (
+        mock.patch(
+            "mythril_agent_bgm.commands.play.load_state",
+            side_effect=["", "work"],
+        ) as load,
+        mock.patch("mythril_agent_bgm.commands.play.time.sleep"),
+    ):
+        wait_for_playback_state("work", timeout=1.0)
+    assert load.call_count == 2
 
 
 def test_play_switches_when_different_type_playing(patched_player):

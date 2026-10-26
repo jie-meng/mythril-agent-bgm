@@ -225,6 +225,22 @@ def wait_for_daemon_pid(previous_pid: Optional[int], timeout: float = 5.0) -> No
         time.sleep(0.1)
 
 
+def wait_for_playback_state(music_type: str, timeout: float = 5.0) -> None:
+    """Wait until the new daemon records what it is playing.
+
+    The daemon writes the state file only after pygame has loaded the track,
+    which happens *after* the PID file appears. Releasing the start lock
+    before that lets a queued caller read "nothing playing" and kill the
+    daemon that was just started — the restart storm, narrowed but not
+    closed. Callers hold the lock while waiting here.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if load_state() == music_type:
+            return
+        time.sleep(0.1)
+
+
 def is_music_type_playing(music_type: str) -> bool:
     """
     Check if a live player daemon is currently playing the given music type.
@@ -293,6 +309,14 @@ def start_background_player(music_type: str, loop: int) -> None:
 
     # Use file lock to prevent concurrent start
     with FileLock(str(lock_file)):
+        # Re-check under the lock: host apps such as Qoder fire hooks for
+        # concurrent tool calls, so several processes can pass the fast-path
+        # check above before any daemon exists. Without this second check
+        # each waiter would kill and restart the track the previous one
+        # just started, shuffling the music on every tool call.
+        if is_music_type_playing(music_type):
+            return
+
         # Kill any existing BGM player process first
         previous_pid = kill_existing_process()
 
@@ -330,6 +354,10 @@ def start_background_player(music_type: str, loop: int) -> None:
         # otherwise a concurrent play/stop would kill nothing and start
         # a second daemon (the race that piled up overlapping players).
         wait_for_daemon_pid(previous_pid)
+
+        # The daemon claims its music type after pygame loads the track;
+        # hold the lock until then so queued callers see it as playing.
+        wait_for_playback_state(music_type)
 
         # Give it a moment to start and save PID
         time.sleep(0.5)
