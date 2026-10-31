@@ -1,0 +1,19 @@
+tests/test_zcode_integration.py
+  s_1ecd66c2a04aa1::t_42db6fd11c6752 13-27,82-87,163-285,298,307-314
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f876b130f03368b074d17562e8303bf5041dec6f",
+  "prompts": {},
+  "sessions": {
+    "s_1ecd66c2a04aa1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e70360112ffeTGsU200CJZvnFp",
+        "model": "unknown"
+      },
+      "human_author": "Jie Meng <jmengxy@gmail.com>"
+    }
+  }
+}
