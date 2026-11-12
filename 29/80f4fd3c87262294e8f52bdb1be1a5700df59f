@@ -1,0 +1,21 @@
+src/mythril_agent_bgm/utils/common.py
+  s_2a2439dc4a99ca::t_5360910ce1c7e5 274-288
+tests/test_hook_output.py
+  s_2a2439dc4a99ca::t_b4652c1a80611a 1-168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2980f4fd3c87262294e8f52bdb1be1a5700df59f",
+  "prompts": {},
+  "sessions": {
+    "s_2a2439dc4a99ca": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e32a6e249ffe3cQ64K7IjqH3eW",
+        "model": "unknown"
+      },
+      "human_author": "Jie Meng <jmengxy@gmail.com>"
+    }
+  }
+}
