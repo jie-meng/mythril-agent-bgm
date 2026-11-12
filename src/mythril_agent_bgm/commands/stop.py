@@ -12,6 +12,7 @@ from mythril_agent_bgm.utils.common import (
     get_pid_file,
     get_lock_file,
     clear_state,
+    is_interactive,
 )
 from mythril_agent_bgm.utils.process import ProcessManager, FileLock
 from mythril_agent_bgm.utils.platform_utils import is_unix
@@ -107,7 +108,9 @@ def stop():
     with FileLock(str(lock_file)):
         # Kill any existing BGM player process
         killed = kill_existing_player()
-        if killed:
-            click.echo("Stopped BGM player")
-        else:
-            click.echo("No BGM player is currently running")
+        # Hook hosts capture stdout and surface every line; only tell a human.
+        if is_interactive():
+            if killed:
+                click.echo("Stopped BGM player")
+            else:
+                click.echo("No BGM player is currently running")

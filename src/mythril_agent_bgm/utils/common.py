@@ -271,6 +271,21 @@ def set_bgm_enable(enable: bool) -> None:
         json.dump(data, f, indent=2)
 
 
+def is_interactive() -> bool:
+    """
+    Check whether stdout is attached to an interactive terminal.
+
+    Informational output is meant for a human watching the command. Hook
+    hosts (CodeBuddy, ZCode, ...) capture stdout through a pipe and surface
+    every line in their session, so those messages are suppressed when
+    stdout is not a TTY.
+
+    Returns:
+        True when stdout is a TTY, False when it is redirected or piped.
+    """
+    return sys.stdout is not None and sys.stdout.isatty()
+
+
 def load_builtin_config() -> dict:
     """
     Load merged BGM config.

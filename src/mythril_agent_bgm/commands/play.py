@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Optional
 
 import click
-import pygame
 
 from mythril_agent_bgm.utils.common import (
     get_pid_file,
@@ -26,12 +25,18 @@ from mythril_agent_bgm.utils.common import (
     clear_state,
     load_state,
     is_bgm_enabled,
+    is_interactive,
     get_audio_candidate_paths,
     resolve_audio_file_path,
 )
 from mythril_agent_bgm.utils.logger import LogManager
 from mythril_agent_bgm.utils.process import ProcessManager, FileLock, setup_signal_handlers
 from mythril_agent_bgm.utils.platform_utils import is_windows
+
+# pygame prints a support banner to stdout on import. Hook hosts capture
+# stdout and surface every line, so hide it before pygame is loaded.
+os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+import pygame  # noqa: E402
 
 
 def kill_existing_process() -> Optional[int]:
@@ -346,9 +351,10 @@ def start_background_player(music_type: str, loop: int) -> None:
                 close_fds=True,
             )
 
-        if previous_pid is not None:
-            click.echo("Stopped previous BGM player")
-        click.echo("BGM player started in background")
+        if is_interactive():
+            if previous_pid is not None:
+                click.echo("Stopped previous BGM player")
+            click.echo("BGM player started in background")
 
         # Only release the lock once the new daemon owns the PID file,
         # otherwise a concurrent play/stop would kill nothing and start
@@ -364,7 +370,7 @@ def start_background_player(music_type: str, loop: int) -> None:
 
         # Try to read the PID if it was saved
         pid_file = get_pid_file()
-        if pid_file.exists():
+        if is_interactive() and pid_file.exists():
             try:
                 with open(pid_file, "r") as f:
                     pid = f.read().strip()
@@ -442,7 +448,9 @@ def play(music_type: str, loop: int, daemon: bool):
     """
     # Check if BGM is enabled
     if not is_bgm_enabled():
-        click.echo("AI BGM is disabled. Use 'bgm enable' to enable it.")
+        # Hook hosts capture stdout and surface every line; only tell a human.
+        if is_interactive():
+            click.echo("AI BGM is disabled. Use 'bgm enable' to enable it.")
         return
 
     if daemon:
