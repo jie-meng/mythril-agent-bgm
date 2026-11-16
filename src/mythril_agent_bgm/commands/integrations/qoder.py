@@ -73,9 +73,10 @@ class QoderIntegration(AIToolIntegration):
         - SessionEnd: Stop all music
         - Notification: Play notification music (only on permission_prompt)
         - PostToolUse: Switch back to work music after the user answers a
-          permission prompt. ``bgm play work 0`` is idempotent (a no-op while
-          work music is already playing), so hooking it on a frequent event
-          like PostToolUse never restarts the current track.
+          permission prompt. ``bgm resume`` only acts while notification
+          music is still playing, so the background tool calls Qoder runs
+          after Stop (e.g. memory extraction) cannot restart work music
+          once the turn has ended.
 
         Args:
             settings: Existing settings dictionary
@@ -97,9 +98,7 @@ class QoderIntegration(AIToolIntegration):
                     ],
                 }
             ],
-            "PostToolUse": [
-                {"hooks": [{"type": "command", "command": _bgm_command("play", "work", "0")}]}
-            ],
+            "PostToolUse": [{"hooks": [{"type": "command", "command": _bgm_command("resume")}]}],
         }
 
         # Initialize hooks if it doesn't exist

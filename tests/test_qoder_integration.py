@@ -72,10 +72,10 @@ def test_setup_adds_all_hooks(fake_home: Path, patched_home):
         assert hooks["SessionEnd"][0]["hooks"][0]["command"] == f"{FAKE_BGM} stop"
         assert hooks["Notification"][0]["matcher"] == "permission_prompt"
         assert hooks["Notification"][0]["hooks"][0]["command"] == f"{FAKE_BGM} play notification 0"
-        # Resume hook: fires after the user answers a permission prompt;
-        # bgm play work 0 is idempotent, so it only switches back to work
-        # (never restarts an already playing track).
-        assert hooks["PostToolUse"][0]["hooks"][0]["command"] == f"{FAKE_BGM} play work 0"
+        # Resume hook: fires after the user answers a permission prompt.
+        # bgm resume only acts while notification music is still playing,
+        # so background tool calls after Stop cannot restart work music.
+        assert hooks["PostToolUse"][0]["hooks"][0]["command"] == f"{FAKE_BGM} resume"
 
 
 def test_setup_keeps_other_settings_and_hooks(fake_home: Path, patched_home):
@@ -243,6 +243,7 @@ def test_legacy_bare_command_config_is_upgraded(fake_home: Path, patched_home):
     settings = json.loads(settings_path.read_text(encoding="utf-8"))
     for event in legacy_events:
         assert settings["hooks"][event][0]["hooks"][0]["command"].startswith(FAKE_BGM)
+    assert settings["hooks"]["PostToolUse"][0]["hooks"][0]["command"] == f"{FAKE_BGM} resume"
 
 
 def test_registry_returns_qoder():
