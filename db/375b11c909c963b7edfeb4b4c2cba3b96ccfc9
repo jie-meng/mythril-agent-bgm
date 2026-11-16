@@ -1,0 +1,22 @@
+src/mythril_agent_bgm/cli.py
+  h_e0538e51a4c5ef 10,34
+src/mythril_agent_bgm/commands/integrations/qoder.py
+  h_e0538e51a4c5ef 76-79,101
+src/mythril_agent_bgm/commands/resume.py
+  h_e0538e51a4c5ef 1-28
+tests/test_qoder_integration.py
+  h_e0538e51a4c5ef 75-78,246
+tests/test_resume.py
+  h_e0538e51a4c5ef 1-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db375b11c909c963b7edfeb4b4c2cba3b96ccfc9",
+  "prompts": {},
+  "humans": {
+    "h_e0538e51a4c5ef": {
+      "author": "Jie Meng <jmengxy@gmail.com>"
+    }
+  }
+}
