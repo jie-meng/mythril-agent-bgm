@@ -1,0 +1,20 @@
+src/mythril_agent_bgm/commands/hook.py
+  h_e0538e51a4c5ef 8,13-15,52-95,101-112,119-132,137,141-144,147-162
+src/mythril_agent_bgm/commands/integrations/claude.py
+  h_e0538e51a4c5ef 118,120,139,142-155
+tests/test_claude_integration.py
+  h_e0538e51a4c5ef 117,119,299-300,319,342
+tests/test_hook.py
+  h_e0538e51a4c5ef 24-37,55-67,120-213,228,249-250
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f5dcd6043adeb177db02153edd8349ea553ccf14",
+  "prompts": {},
+  "humans": {
+    "h_e0538e51a4c5ef": {
+      "author": "Jie Meng <jmengxy@gmail.com>"
+    }
+  }
+}
