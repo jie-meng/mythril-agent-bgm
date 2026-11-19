@@ -1,0 +1,16 @@
+src/mythril_agent_bgm/commands/integrations/claude.py
+  h_e0538e51a4c5ef 123-126,155-158,178-185
+tests/test_claude_integration.py
+  h_e0538e51a4c5ef 75,77,104-110,156-176,213,297-298,302
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "07230a53a91130249f35f01ed01f8345a7018477",
+  "prompts": {},
+  "humans": {
+    "h_e0538e51a4c5ef": {
+      "author": "Jie Meng <jmengxy@gmail.com>"
+    }
+  }
+}
