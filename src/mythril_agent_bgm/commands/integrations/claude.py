@@ -115,9 +115,9 @@ class ClaudeIntegration(AIToolIntegration):
         Setup Claude Code hooks.
 
         Configures hooks for:
-        - UserPromptSubmit: Start work music
+        - UserPromptSubmit: Start work music and claim it for this session
         - Stop: Keep work music while background tasks run, otherwise play done
-        - SessionEnd: Stop all music
+        - SessionEnd: Stop music only when this session owns it
         - Notification(permission_prompt): Play notification music
         - Notification(idle_prompt): Replace running work music with done
         - PostToolUse / PostToolUseFailure: Resume work music after the user
@@ -136,10 +136,23 @@ class ClaudeIntegration(AIToolIntegration):
         """
         hooks_config: Dict[str, list] = {
             "UserPromptSubmit": [
-                {"hooks": [{"type": "command", "command": _bgm_command("play", "work", "0")}]}
+                {"hooks": [{"type": "command", "command": _bgm_command("hook", "work")}]}
             ],
             "Stop": [{"hooks": [{"type": "command", "command": _bgm_command("hook", "stop")}]}],
-            "SessionEnd": [{"hooks": [{"type": "command", "command": _bgm_command("stop")}]}],
+            "SessionEnd": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": _bgm_command("hook", "end"),
+                            # SessionEnd hooks share a 1.5 s budget unless a
+                            # handler asks for more; end waits for the player
+                            # lock so a concurrent prompt is never cut off.
+                            "timeout": 10,
+                        }
+                    ]
+                }
+            ],
             "Notification": [
                 {
                     "matcher": "permission_prompt",

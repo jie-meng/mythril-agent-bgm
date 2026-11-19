@@ -114,9 +114,9 @@ def test_setup_keeps_other_tool_handlers(fake_home: Path, patched_home):
         assert len(hooks[event]) == 2
         assert len(hooks[event][1]["hooks"]) == 1
 
-    assert hooks["UserPromptSubmit"][1]["hooks"][0]["command"] == f"{FAKE_BGM} play work 0"
+    assert hooks["UserPromptSubmit"][1]["hooks"][0]["command"] == f"{FAKE_BGM} hook work"
     assert hooks["Stop"][1]["hooks"][0]["command"] == f"{FAKE_BGM} hook stop"
-    assert hooks["SessionEnd"][1]["hooks"][0]["command"] == f"{FAKE_BGM} stop"
+    assert hooks["SessionEnd"][1]["hooks"][0]["command"] == f"{FAKE_BGM} hook end"
 
     notification = hooks["Notification"]
     assert notification[0] == {"matcher": "permission_prompt", "hooks": [OTHER_HANDLER]}
@@ -296,6 +296,8 @@ def test_legacy_bare_command_config_is_upgraded(fake_home: Path, patched_home):
     assert len(hooks["Notification"]) == 2
     assert len(hooks["PostToolUse"]) == 1
     assert len(hooks["PostToolUseFailure"]) == 1
+    assert hooks["UserPromptSubmit"][0]["hooks"][0]["command"] == f"{FAKE_BGM} hook work"
+    assert hooks["SessionEnd"][0]["hooks"][0]["command"] == f"{FAKE_BGM} hook end"
     assert hooks["Stop"][0]["hooks"][0]["command"] == f"{FAKE_BGM} hook stop"
     assert hooks["Notification"][0]["hooks"][0]["command"] == f"{FAKE_BGM} play notification 0"
     assert hooks["Notification"][1]["hooks"][0]["command"] == f"{FAKE_BGM} hook idle"
@@ -314,7 +316,7 @@ def test_setup_falls_back_to_bare_bgm_when_unresolvable(fake_home: Path, patched
         settings = _read_settings(fake_home)
 
     hooks = settings["hooks"]
-    assert hooks["UserPromptSubmit"][0]["hooks"][0]["command"] == "bgm play work 0"
+    assert hooks["UserPromptSubmit"][0]["hooks"][0]["command"] == "bgm hook work"
     assert hooks["Stop"][0]["hooks"][0]["command"] == "bgm hook stop"
 
 
@@ -337,7 +339,7 @@ def test_setup_quotes_executable_path_with_spaces(fake_home: Path, patched_home)
             assert not integration.is_configured()
 
     hooks = settings["hooks"]
-    assert hooks["UserPromptSubmit"][0]["hooks"][0]["command"] == f"'{spaced}' play work 0"
+    assert hooks["UserPromptSubmit"][0]["hooks"][0]["command"] == f"'{spaced}' hook work"
     assert hooks["Stop"][0]["hooks"][0]["command"] == f"'{spaced}' hook stop"
 
 
