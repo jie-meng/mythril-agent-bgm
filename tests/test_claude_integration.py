@@ -72,7 +72,9 @@ def _other_tool_settings() -> dict:
             "Stop": [{"hooks": [OTHER_HANDLER]}],
             "SessionEnd": [{"hooks": [OTHER_HANDLER]}],
             "Notification": [{"matcher": "permission_prompt", "hooks": [OTHER_HANDLER]}],
+            "PreToolUse": [{"hooks": [OTHER_HANDLER]}],
             "PostToolUse": [{"hooks": [OTHER_HANDLER]}],
+            "PostToolUseFailure": [{"hooks": [OTHER_HANDLER]}],
         },
     }
 
@@ -99,7 +101,13 @@ def test_setup_keeps_other_tool_handlers(fake_home: Path, patched_home):
     hooks = settings["hooks"]
     assert settings["model"] == "claude-sonnet-4"
     assert settings["permissions"] == {"allow": ["Bash(ls:*)"]}
-    assert hooks["PostToolUse"] == [{"hooks": [OTHER_HANDLER]}]
+    assert hooks["PreToolUse"] == [{"hooks": [OTHER_HANDLER]}]
+    assert len(hooks["PostToolUse"]) == 2
+    assert hooks["PostToolUse"][0] == {"hooks": [OTHER_HANDLER]}
+    assert hooks["PostToolUse"][1]["hooks"][0]["command"] == f"{FAKE_BGM} resume"
+    assert len(hooks["PostToolUseFailure"]) == 2
+    assert hooks["PostToolUseFailure"][0] == {"hooks": [OTHER_HANDLER]}
+    assert hooks["PostToolUseFailure"][1]["hooks"][0]["command"] == f"{FAKE_BGM} resume"
 
     for event in ("UserPromptSubmit", "Stop", "SessionEnd"):
         assert hooks[event][0] == {"hooks": [OTHER_HANDLER]}
@@ -145,6 +153,27 @@ def test_setup_keeps_other_handlers_inside_a_mixed_group(fake_home: Path, patche
     assert stop_groups[1]["hooks"][0]["command"] == f"{FAKE_BGM} hook stop"
 
 
+def test_setup_resumes_work_after_an_answered_prompt(fake_home: Path, patched_home):
+    """Both tool outcomes must be wired to resume; the music itself is covered by test_resume."""
+    with patched_home:
+        integration = ClaudeIntegration()
+        ok, _ = integration.perform_setup()
+        assert ok
+        hooks = _read_settings(fake_home)["hooks"]
+
+        assert hooks["PostToolUse"] == [
+            {"hooks": [{"type": "command", "command": f"{FAKE_BGM} resume"}]}
+        ]
+        assert hooks["PostToolUseFailure"] == [
+            {"hooks": [{"type": "command", "command": f"{FAKE_BGM} resume"}]}
+        ]
+
+        ok, _ = integration.perform_cleanup()
+        assert ok
+
+    assert "hooks" not in _read_settings(fake_home)
+
+
 def test_setup_then_cleanup_restores_other_tool_settings(fake_home: Path, patched_home):
     initial = _other_tool_settings()
     _write_settings(fake_home, initial)
@@ -181,7 +210,7 @@ def test_cleanup_leaves_no_hooks_key_when_there_was_none(fake_home: Path, patche
 
 
 def test_cleanup_drops_event_keys_that_only_held_bgm_handlers(fake_home: Path, patched_home):
-    initial = {"hooks": {"PostToolUse": [{"hooks": [OTHER_HANDLER]}]}}
+    initial = {"hooks": {"PreToolUse": [{"hooks": [OTHER_HANDLER]}]}}
     _write_settings(fake_home, initial)
 
     with patched_home:
@@ -265,9 +294,12 @@ def test_legacy_bare_command_config_is_upgraded(fake_home: Path, patched_home):
     assert len(hooks["Stop"]) == 1
     assert len(hooks["SessionEnd"]) == 1
     assert len(hooks["Notification"]) == 2
+    assert len(hooks["PostToolUse"]) == 1
+    assert len(hooks["PostToolUseFailure"]) == 1
     assert hooks["Stop"][0]["hooks"][0]["command"] == f"{FAKE_BGM} hook stop"
     assert hooks["Notification"][0]["hooks"][0]["command"] == f"{FAKE_BGM} play notification 0"
     assert hooks["Notification"][1]["hooks"][0]["command"] == f"{FAKE_BGM} hook idle"
+    assert hooks["PostToolUse"][0]["hooks"][0]["command"] == f"{FAKE_BGM} resume"
 
 
 def test_setup_falls_back_to_bare_bgm_when_unresolvable(fake_home: Path, patched_home):

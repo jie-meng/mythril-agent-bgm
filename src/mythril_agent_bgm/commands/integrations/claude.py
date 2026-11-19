@@ -120,6 +120,10 @@ class ClaudeIntegration(AIToolIntegration):
         - SessionEnd: Stop all music
         - Notification(permission_prompt): Play notification music
         - Notification(idle_prompt): Replace running work music with done
+        - PostToolUse / PostToolUseFailure: Resume work music after the user
+          answers a permission prompt. ``bgm resume`` only acts while
+          notification music is still playing, so tool calls that run after
+          the turn ended (background agents, workflows) cannot restart work.
 
         Handlers installed by other tools are preserved; only bgm's own
         handlers are replaced.
@@ -148,6 +152,10 @@ class ClaudeIntegration(AIToolIntegration):
                     "hooks": [{"type": "command", "command": _bgm_command("hook", "idle")}],
                 },
             ],
+            "PostToolUse": [{"hooks": [{"type": "command", "command": _bgm_command("resume")}]}],
+            "PostToolUseFailure": [
+                {"hooks": [{"type": "command", "command": _bgm_command("resume")}]}
+            ],
         }
 
         # Initialize hooks if it doesn't exist
@@ -167,7 +175,14 @@ class ClaudeIntegration(AIToolIntegration):
         if not isinstance(hooks, dict):
             return settings
 
-        for event in ("UserPromptSubmit", "Stop", "SessionEnd", "Notification"):
+        for event in (
+            "UserPromptSubmit",
+            "Stop",
+            "SessionEnd",
+            "Notification",
+            "PostToolUse",
+            "PostToolUseFailure",
+        ):
             if event not in hooks:
                 continue
 
